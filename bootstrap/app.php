@@ -3,6 +3,12 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\ForceJsonResponse;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use App\Helpers\ApiResponse;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,8 +18,40 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        $middleware->append(ForceJsonResponse::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // 🔒 Token Sanctum tidak valid / belum login
+        $exceptions->render(function (AuthenticationException $e, $request) {
+            if ($request->is('api/*')) {
+                return ApiResponse::error('Tidak terautentikasi. Token tidak valid atau belum diberikan.', null, 401);
+            }
+        });
+
+        // 🧾 Error validasi
+        $exceptions->render(function (ValidationException $e, $request) {
+            if ($request->is('api/*')) {
+                return ApiResponse::error('Validasi gagal.', $e->errors(), 422);
+            }
+        });
+
+        // ❌ Endpoint tidak ditemukan
+        $exceptions->render(function (NotFoundHttpException $e, $request) {
+            if ($request->is('api/*')) {
+                return ApiResponse::error('Endpoint tidak ditemukan.', null, 404);
+            }
+        });
+
+        // ⚠️ Error umum lain (fallback)
+        $exceptions->render(function (Throwable $e, $request) {
+            if ($request->is('api/*')) {
+                return ApiResponse::error(
+                    app()->hasDebugModeEnabled()
+                        ? $e->getMessage()
+                        : 'Terjadi kesalahan pada server.',
+                    null,
+                    method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500
+                );
+            }
+        });
     })->create();
