@@ -5,6 +5,9 @@ use App\Http\Controllers\WargaController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/check-nik', [AuthController::class, 'checkNik']);
+Route::post('/set-password', [AuthController::class, 'setPassword']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);

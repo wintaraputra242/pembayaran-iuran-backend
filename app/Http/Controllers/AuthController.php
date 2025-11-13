@@ -2,85 +2,152 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
+use App\Models\Warga;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
-use App\Models\User;
-use App\Models\Warga;
 use App\Helpers\ApiResponse;
 
 class AuthController extends Controller
 {
     /**
-     * Login untuk admin, ketua_regu, dan warga
+     * Tahap 1 - Cek NIK warga
+     */
+    public function checkNik(Request $request)
+    {
+        $request->validate([
+            'nik' => 'required|string',
+        ]);
+
+        $warga = Warga::where('nik', $request->nik)->first();
+
+        if (!$warga) {
+            return ApiResponse::error('NIK tidak ditemukan.', null, 404);
+        }
+
+        // ini tidak diperlukan, karena nanti di disaat penambahan data warga, secara otomatis ditambahkan akun usernya juga 
+        // DIGUNAKAN UNTUK TESTING
+        $user = User::where('nik', $request->nik)->first();
+
+        // Jika belum punya akun user → buat akun kosong
+        if (!$user) {
+            $user = User::create([
+                'nik' => $request->nik,
+                'role' => 'warga',
+                'password' => null,
+            ]);
+        }
+
+        // Jika password belum dibuat
+        if (empty($user->password)) {
+            return ApiResponse::success([
+                'needs_password' => true,
+            ], 'NIK valid. Silakan buat password Anda terlebih dahulu.');
+        }
+
+        // Jika password sudah ada, siap login
+        return ApiResponse::success([
+            'needs_password' => false,
+        ], 'NIK valid. Silakan masukkan password Anda.');
+    }
+
+    /**
+     * Tahap 2 - Buat password pertama kali
+     */
+    public function setPassword(Request $request)
+{
+    $request->validate([
+        'nik' => 'required|string|exists:warga,nik',
+        'password' => 'required|string|min:6|confirmed',
+    ]);
+
+    // Cek user berdasarkan NIK
+    $user = User::where('nik', $request->nik)->first();
+
+    if (!$user) {
+        return ApiResponse::error('Akun tidak ditemukan.', null, 404);
+    }
+
+    // Jika password sudah ada, tidak perlu buat lagi
+    if (!empty($user->password)) {
+        return ApiResponse::error('Password sudah pernah dibuat. Silakan login langsung.', null, 400);
+    }
+
+    // Update password baru
+    $user->update([
+        'password' => Hash::make($request->password),
+    ]);
+
+    // Hapus token lama (jaga keamanan)
+    $user->tokens()->delete();
+
+    // Buat token baru (auto-login)
+    $token = $user->createToken('auth_token')->plainTextToken;
+
+    if ($user->role === 'warga' && $user->nik) {
+        $user->load('warga');
+    }
+
+    return ApiResponse::success(
+        [
+            'user' => $user,
+            'token' => $token,
+        ],
+        'Password berhasil dibuat dan login berhasil.'
+    );
+}
+
+
+    /**
+     * Tahap 3 - Login (Admin / Ketua Regu / Warga)
      */
     public function login(Request $request)
     {
         $request->validate([
-            'username' => 'required|string', // bisa NIK atau username
+            'username' => 'required|string', // bisa username atau nik
             'password' => 'required|string',
         ]);
 
-        $user = null;
-
-        // Cek apakah login menggunakan NIK (angka semua)
+        // Login warga (jika input numeric)
         if (is_numeric($request->username)) {
-            // Login sebagai warga
-            $warga = Warga::where('nik', $request->username)->first();
-
-            if (!$warga) {
-                return ApiResponse::error('NIK tidak ditemukan.', [
-                    'username' => ['NIK tidak ditemukan.']
-                ], 404);
-            }
-
-            // Pastikan warga punya akun di tabel user (relasi 1:1)
-            $user = User::where('nik', $warga->nik)
-                        ->where('role', 'warga')
-                        ->first();
+            $user = User::where('nik', $request->username)->where('role', 'warga')->first();
         } else {
-            // Login sebagai admin atau ketua_regu
             $user = User::where('username', $request->username)->first();
         }
 
-        // Jika user tidak ditemukan atau password salah
         if (!$user || !Hash::check($request->password, $user->password)) {
             return ApiResponse::error('Kredensial salah.', 'Username/NIK atau password salah.', 401);
         }
 
-        // Hapus token lama (opsional, agar tidak menumpuk)
-        $user->tokens()->delete();
-
-        // Buat token baru
+        $user->tokens()->delete(); // bersihkan token lama
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        if ($user->role === 'warga' && $user->nik) {
+            $user->load('warga');
+        }
 
         return ApiResponse::success([
             'user' => $user,
             'token' => $token,
-        ], 'Login berhasil.', 200);
+        ], 'Login berhasil.');
     }
 
-    /**
-     * Mengambil data user yang sedang login
-     */
-    public function user(Request $request)
-    {
-        if (!$request->user()) {
-            return ApiResponse::error('User tidak terautentikasi.', null, 401);
-        }
-
-        return ApiResponse::success($request->user(), 'Data user berhasil diambil.', 200);
-    }
-
-    /**
-     * Logout dan hapus token Sanctum
-     */
     public function logout(Request $request)
     {
-        if ($request->user() && $request->user()->currentAccessToken()) {
-            $request->user()->currentAccessToken()->delete();
+        $request->user()->currentAccessToken()->delete();
+        return ApiResponse::success(null, 'Logout berhasil.');
+    }
+
+    public function user(Request $request)
+    {
+        $user = $request->user();
+
+        // Jika user adalah warga, ambil juga data dari tabel warga
+        if ($user->role === 'warga' && $user->nik) {
+            $user->load('warga');
         }
 
-        return ApiResponse::success(null, 'Logout berhasil.', 200);
+        return ApiResponse::success($user, 'Data user login.', 200);
     }
 }
