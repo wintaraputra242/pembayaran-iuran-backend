@@ -14,10 +14,11 @@ class Warga extends Model
 
     protected $fillable = [
         'nik',
-        'nama',
+        'nama_warga',
         'alamat',
         'no_telp',
         'status_keaktifan',
+        
     ];
 
     // Relasi ke anggota regu
