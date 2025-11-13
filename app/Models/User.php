@@ -2,21 +2,23 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable;
+    use HasApiTokens, HasFactory;
 
     protected $table = 'users';
-    protected $primaryKey = 'id_user';
 
     protected $fillable = [
+        'name',
+        'email',
         'username',
+        'role',
         'password',
-        'role', // admin / ketua_regu / warga
+        'nik',
     ];
 
     protected $hidden = [
@@ -24,8 +26,9 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    public function reguDikelola()
+    // Relasi ke Warga (jika role = warga)
+    public function warga()
     {
-        return $this->hasMany(Regu::class, 'id_ketua');
+        return $this->belongsTo(Warga::class, 'nik', 'nik');
     }
 }

@@ -17,9 +17,20 @@ class WargaSeeder extends Seeder
         // DB::table('warga')->truncate();
 
         $wargas = [
-            ['nik' => '3201000000000001', 'nama_warga' => 'I Wayan S', 'alamat' => 'Banjar Trijata', 'no_hp' => '081234567890', 'id_regu' => 1, 'password' => Hash::make('warga123')],
-            ['nik' => '3201000000000002', 'nama_warga' => 'Ni Nyoman T', 'alamat' => 'Banjar Trijata', 'no_hp' => '081234567891', 'id_regu' => 1, 'password' => Hash::make('warga123')],
-            ['nik' => '3201000000000003', 'nama_warga' => 'I Gede P', 'alamat' => 'Banjar Trijata', 'no_hp' => '081234567892', 'id_regu' => 2, 'password' => Hash::make('warga123')],
+            [
+                'nik' => '3201010100010001',
+                'nama_warga' => 'Budi Santoso',
+                'alamat' => 'Jl. Melati No. 5',
+                'no_hp' => '081234567890',
+                'status_keaktifan' => 'aktif',
+            ],
+            [
+                'nik' => '3201010100010002',
+                'nama_warga' => 'Siti Aminah',
+                'alamat' => 'Jl. Mawar No. 10',
+                'no_hp' => '081234567891',
+                'status_keaktifan' => 'aktif',
+            ]
         ];
 
         foreach ($wargas as $w) {

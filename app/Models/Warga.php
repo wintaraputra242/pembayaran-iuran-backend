@@ -10,26 +10,33 @@ class Warga extends Model
     use HasFactory;
 
     protected $table = 'warga';
-    protected $primaryKey = 'id_warga';
+    protected $primaryKey = 'nik';
+    public $incrementing = false; // karena bukan auto-increment
+    protected $keyType = 'string';
 
     protected $fillable = [
         'nik',
         'nama_warga',
         'alamat',
-        'no_telp',
+        'no_hp',
         'status_keaktifan',
-        
     ];
 
-    // Relasi ke anggota regu
+    // Relasi ke User (1 warga punya 1 user)
+    public function user()
+    {
+        return $this->hasOne(User::class, 'nik', 'nik');
+    }
+
+    // Relasi ke anggota_regu
     public function anggotaRegu()
     {
-        return $this->hasOne(AnggotaRegu::class, 'id_warga');
+        return $this->hasMany(AnggotaRegu::class, 'nik', 'nik');
     }
 
     // Relasi ke pembayaran
     public function pembayaran()
     {
-        return $this->hasMany(Pembayaran::class, 'id_warga');
+        return $this->hasMany(Pembayaran::class, 'nik', 'nik');
     }
 }

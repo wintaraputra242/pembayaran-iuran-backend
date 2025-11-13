@@ -12,13 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('warga', function (Blueprint $table) {
-            $table->id('id_warga');
-            $table->string('nik', 32)->unique();
+            $table->string('nik', 32)->primary();
             $table->string('nama_warga');
             $table->string('alamat')->nullable();
             $table->string('no_hp')->nullable();
-            $table->foreignId('id_regu')->nullable()->constrained('regu','id_regu')->nullOnDelete();
-            $table->string('password'); // warga punya password untuk login
+            $table->enum('status_keaktifan', ['aktif','tidak_aktif'])->default('aktif');
             $table->timestamps();
         });
     }

@@ -20,34 +20,38 @@ class UsersTableSeeder extends Seeder
 
         // Admin
         DB::table('users')->insert([
-            'name' => 'Admin Banjar',
-            'email' => 'admin@banjar.test',
+            'name' => 'Admin Sistem',
+            'email' => 'admin@example.com',
             'username' => 'admin',
             'role' => 'admin',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make('password'),
+            'remember_token' => Str::random(10),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         // Ketua Regu (contoh 2 ketua)
         DB::table('users')->insert([
-            'name' => 'Ketua Regu 1',
-            'email' => 'ketuaA@banjar.test',
+            'name' => 'Ketua Regu A',
+            'email' => 'ketuaA@example.com',
             'username' => 'ketuaA',
             'role' => 'ketua_regu',
-            'password' => Hash::make('ketua123'),
+            'password' => Hash::make('password'),
+            'remember_token' => Str::random(10),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        DB::table('users')->insert([
-            'name' => 'Ketua Regu 2',
-            'email' => 'ketuaB@banjar.test',
-            'username' => 'ketuaB',
-            'role' => 'ketua_regu',
-            'password' => Hash::make('ketua123'),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // DB::table('users')->insert([
+        //     'name' => 'Budi Santoso',
+        //     'email' => 'budi@example.com',
+        //     'username' => 'budi',
+        //     'role' => 'warga',
+        //     'nik' => '3201010100010001',
+        //     'password' => Hash::make('budi123'),
+        //     'remember_token' => Str::random(10),
+        //     'created_at' => now(),
+        //     'updated_at' => now(),
+        // ]);
     }
 }

@@ -16,7 +16,7 @@ return new class extends Migration
                 $table->string('username')->nullable()->unique()->after('email');
             }
             if (!Schema::hasColumn('users', 'role')) {
-                $table->enum('role', ['admin','ketua_regu'])->default('admin')->after('username');
+                $table->enum('role', ['admin','ketua_regu', 'warga'])->nullable()->default('admin')->after('username');
             }
         });
     }

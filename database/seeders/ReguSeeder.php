@@ -16,8 +16,8 @@ class ReguSeeder extends Seeder
         // DB::table('regu')->truncate();
 
         DB::table('regu')->insert([
-            ['nama_regu' => 'Regu A', 'id_ketua' => 2, 'created_at' => now(), 'updated_at' => now()],
-            ['nama_regu' => 'Regu B', 'id_ketua' => 3, 'created_at' => now(), 'updated_at' => now()],
+            ['nama_regu' => 'Regu A', 'created_at' => now(), 'updated_at' => now()],
+            ['nama_regu' => 'Regu B', 'created_at' => now(), 'updated_at' => now()],
         ]);
     }
 }

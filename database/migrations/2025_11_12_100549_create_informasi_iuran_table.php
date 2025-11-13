@@ -12,12 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('informasi_iuran', function (Blueprint $table) {
-            $table->id('id_informasi_iuran');
+            $table->id();
             $table->enum('jenis_iuran', ['bulanan','kematian']);
             $table->string('periode')->nullable(); // contoh: "Jan-2025" atau "2025" (jika perlu)
-            $table->bigInteger('jumlah_iuran')->default(0); // simpan dalam satuan rupiah (integer)
+            $table->bigInteger('jumlah_iuran')->default(0);
             $table->text('keterangan')->nullable();
-            $table->boolean('is_active')->default(true);
+            $table->boolean('status_aktif')->default(true);
             $table->timestamps();
         });
     }

@@ -10,24 +10,26 @@ class Pembayaran extends Model
     use HasFactory;
 
     protected $table = 'pembayaran';
-    protected $primaryKey = 'id_pembayaran';
 
     protected $fillable = [
-        'id_warga',
-        'id_informasi',
+        'nik',
+        'id_informasi_iuran',
         'tanggal_bayar',
-        'jumlah_bayar',
+        'total_bayar',
         'metode_bayar',
         'status_bayar',
+        'bukti_pembayaran',
     ];
 
+    // Relasi ke warga
     public function warga()
     {
-        return $this->belongsTo(Warga::class, 'id_warga');
+        return $this->belongsTo(Warga::class, 'nik', 'nik');
     }
 
+    // Relasi ke informasi iuran
     public function informasiIuran()
     {
-        return $this->belongsTo(InformasiIuran::class, 'id_informasi');
+        return $this->belongsTo(InformasiIuran::class, 'id_informasi_iuran');
     }
 }

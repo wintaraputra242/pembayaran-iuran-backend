@@ -12,12 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('regu', function (Blueprint $table) {
-            $table->id('id_regu');
+            $table->id();
             $table->string('nama_regu');
-            $table->unsignedBigInteger('id_ketua')->nullable();;
             $table->timestamps();
-
-            $table->foreign('id_ketua')->references('id_user')->on('users')->onDelete('set null');
         });
     }
 

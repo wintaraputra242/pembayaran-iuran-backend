@@ -10,17 +10,17 @@ class InformasiIuran extends Model
     use HasFactory;
 
     protected $table = 'informasi_iuran';
-    protected $primaryKey = 'id_informasi';
 
     protected $fillable = [
-        'nama_iuran',
-        'jumlah',
+        'jenis_iuran',
         'periode',
+        'jumlah_iuran',
         'keterangan',
+        'status_aktif',
     ];
 
     public function pembayaran()
     {
-        return $this->hasMany(Pembayaran::class, 'id_informasi');
+        return $this->hasMany(Pembayaran::class, 'id_informasi_iuran');
     }
 }

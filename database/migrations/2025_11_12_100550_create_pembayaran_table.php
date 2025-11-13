@@ -12,9 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('pembayaran', function (Blueprint $table) {
-            $table->id('id_pembayaran');
-            $table->foreignId('id_warga')->constrained('warga','id_warga')->cascadeOnDelete();
-            $table->foreignId('id_informasi_iuran')->constrained('informasi_iuran','id_informasi_iuran')->cascadeOnDelete();
+            $table->id();
+            $table->string('nik', 32);
+            $table->foreign('nik')->references('nik')->on('warga')->cascadeOnDelete();
+            $table->foreignId('id_informasi_iuran')->constrained('informasi_iuran','id')->cascadeOnDelete();
             $table->date('tanggal_bayar');
             $table->bigInteger('total_bayar')->default(0);
             $table->string('metode_bayar')->nullable(); // contoh: tunai, qris, transfer

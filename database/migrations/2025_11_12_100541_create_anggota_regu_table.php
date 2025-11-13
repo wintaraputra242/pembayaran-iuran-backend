@@ -13,12 +13,14 @@ return new class extends Migration
     {
         Schema::create('anggota_regu', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('id_regu')->constrained('regu','id_regu')->cascadeOnDelete();
-            $table->foreignId('id_warga')->constrained('warga','id_warga')->cascadeOnDelete();
+            $table->foreignId('id_regu')->constrained('regu','id')->cascadeOnDelete();
+            $table->string('nik', 32);
+            $table->foreign('nik')->references('nik')->on('warga')->cascadeOnDelete();
             $table->enum('status_keaktifan', ['aktif','tidak_aktif'])->default('aktif');
+            $table->boolean('is_leader')->default(false);
             $table->timestamps();
 
-            $table->unique(['id_regu','id_warga']);
+            $table->unique(['id_regu','nik']);
         });
     }
 
