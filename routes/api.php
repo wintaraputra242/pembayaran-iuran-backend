@@ -20,5 +20,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/warga', [WargaController::class, 'store']);
     Route::put('/warga/{id}', [WargaController::class, 'update']);
     Route::delete('/warga/{id}', [WargaController::class, 'destroy']);
+    Route::patch('/warga/{id}/status', [WargaController::class, 'updateStatus']);
 });
 

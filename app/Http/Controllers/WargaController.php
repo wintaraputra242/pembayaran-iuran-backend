@@ -112,7 +112,7 @@ class WargaController extends Controller
             'nama_warga' => 'sometimes|required|string|max:100',
             'alamat' => 'sometimes|required|string',
             'no_hp' => 'nullable|string|max:20',
-            'regu_id' => 'nullable|exists:regu,id_regu',
+            'status_keaktifan' => 'nullable|in:aktif,tidak_aktif',
         ], [
             'nik.unique' => 'Nik sudah terdaftar.',
             'nik.required' => 'Nik wajib diisi.',
@@ -158,5 +158,44 @@ class WargaController extends Controller
         $warga->save();
 
         return ApiResponse::success(null, 'Warga berhasil dinonaktifkan. Data akan dihapus permanen setelah 1 bulan.');
+    }
+
+    public function updateStatus(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'status_keaktifan' => 'nullable|in:aktif,tidak_aktif',
+        ], [
+            'status_keaktifan.in' => 'Status keaktifan hanya boleh aktif atau tidak_aktif.',
+        ]);
+
+        if ($validator->fails()) {
+            $firstError = collect($validator->errors()->all())->first();
+            return ApiResponse::error('Validasi gagal.', $firstError, 422);
+        }
+
+        $warga = Warga::find($id);
+
+        if (!$warga) {
+            return response()->json([
+                'message' => 'Warga tidak ditemukan'
+            ], 404);
+        }
+
+        // Update status saja
+        $warga->status_keaktifan = $request->status_keaktifan;
+
+        // Jika status diubah menjadi tidak aktif → catat tanggal_nonaktif
+        if ($request->status_keaktifan === 'tidak_aktif') {
+            $warga->tanggal_nonaktif = now();
+        }
+
+        // Jika status diubah kembali menjadi aktif → reset tanggal_nonaktif
+        if ($request->status_keaktifan === 'aktif') {
+            $warga->tanggal_nonaktif = null;
+        }
+
+        $warga->save();
+
+        return ApiResponse::success($warga, 'Status keaktifan berhasil diperbarui.');
     }
 }
