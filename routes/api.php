@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\WargaController;
+use App\Http\Controllers\ReguController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -21,5 +22,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/warga/{id}', [WargaController::class, 'update']);
     Route::delete('/warga/{id}', [WargaController::class, 'destroy']);
     Route::patch('/warga/{id}/status', [WargaController::class, 'updateStatus']);
+    
+    // Regu
+    Route::get('/regu', [ReguController::class, 'index']);
+    Route::get('/regu/{id}', [ReguController::class, 'show']);
+    Route::post('/regu', [ReguController::class, 'store']);
+    Route::put('/regu/{id}', [ReguController::class, 'update']);
+    Route::delete('/regu/{id}', [ReguController::class, 'destroy']);
 });
 
