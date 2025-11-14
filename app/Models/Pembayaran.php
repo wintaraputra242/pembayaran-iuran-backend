@@ -13,6 +13,8 @@ class Pembayaran extends Model
 
     protected $fillable = [
         'nik',
+        'nik_snapshot',
+        'nama_warga_snapshot',
         'id_informasi_iuran',
         'tanggal_bayar',
         'total_bayar',

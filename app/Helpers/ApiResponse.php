@@ -11,7 +11,7 @@ class ApiResponse
             'code' => $code,
             'message' => $message,
             'data' => $data,
-        ]);
+        ], $code);
     }
 
     public static function error($message = 'Error', $errors = null, $code = 400)
@@ -21,6 +21,6 @@ class ApiResponse
             'code' => $code,
             'message' => $message,
             'errors' => $errors,
-        ]);
+        ], $code);
     }
 }
