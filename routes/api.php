@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\WargaController;
 use App\Http\Controllers\ReguController;
+use App\Http\Controllers\AnggotaReguController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -29,5 +30,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/regu', [ReguController::class, 'store']);
     Route::put('/regu/{id}', [ReguController::class, 'update']);
     Route::delete('/regu/{id}', [ReguController::class, 'destroy']);
+
+    // Anggota Regu
+    Route::get('/anggota-regu', [AnggotaReguController::class, 'index']);
+    Route::get('/anggota-regu/{id}', [AnggotaReguController::class, 'show']);
+    Route::post('/anggota-regu', [AnggotaReguController::class, 'store']);
+    Route::delete('/anggota-regu/{id}', [AnggotaReguController::class, 'destroy']);
+    Route::patch('/anggota-regu/{id}/set-leader', [AnggotaReguController::class, 'updateLeader']);
 });
 
