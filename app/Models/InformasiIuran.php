@@ -17,6 +17,7 @@ class InformasiIuran extends Model
         'jumlah_iuran',
         'keterangan',
         'status_aktif',
+        'tanggal_nonaktif',
     ];
 
     public function pembayaran()
