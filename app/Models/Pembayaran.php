@@ -20,7 +20,15 @@ class Pembayaran extends Model
         'total_bayar',
         'metode_bayar',
         'status_bayar',
+        'jumlah_iuran_snapshot',
+        'bulan',
         'bukti_pembayaran',
+        'midtrans_order_id',
+        'midtrans_transaction_id',
+        'midtrans_va_number',
+        'midtrans_qr_string',
+        'midtrans_payment_type',
+        'midtrans_raw_response',
     ];
 
     // Relasi ke warga

@@ -189,6 +189,9 @@ class InformasiIuranController extends Controller
 
         $jenis = $data['jenis_iuran'] ?? $iuran->jenis_iuran;
 
+        // =============================
+        // VALIDASI UNTUK BULANAN
+        // =============================
         if ($jenis === 'bulanan') {
 
             $periode = $data['periode'] ?? $iuran->periode;
@@ -213,6 +216,9 @@ class InformasiIuranController extends Controller
             $data['periode'] = $periode;
         }
 
+        // =============================
+        // VALIDASI UNTUK KEMATIAN
+        // =============================
         if ($jenis === 'kematian') {
 
             $data['periode'] = null;
@@ -231,10 +237,46 @@ class InformasiIuranController extends Controller
             }
         }
 
+        // =====================================================
+        // *PERUBAHAN UTAMA*: Jika jumlah_iuran berubah → buat data baru
+        // =====================================================
+
+        // Jika user tidak mengirim jumlah_iuran → tetap gunakan nilai lama
+        $jumlahBaru = $data['jumlah_iuran'] ?? $iuran->jumlah_iuran;
+
+        if ($jumlahBaru != $iuran->jumlah_iuran) {
+
+            // Nonaktifkan data lama
+            $iuran->update([
+                'status_aktif' => false,
+                'tanggal_nonaktif' => now(),
+            ]);
+
+            // Buat data baru
+            $newIuran = InformasiIuran::create([
+                'jenis_iuran'   => $jenis,
+                'periode'       => $data['periode'] ?? $iuran->periode,
+                'jumlah_iuran'  => $jumlahBaru,
+                'keterangan'    => $data['keterangan'] ?? $iuran->keterangan,
+                'status_aktif'  => true,
+                'tanggal_nonaktif' => null,
+            ]);
+
+            return ApiResponse::success(
+                $newIuran,
+                'Jumlah iuran berubah. Data baru telah dibuat dan data lama dinonaktifkan.'
+            );
+        }
+
+        // =====================================================
+        // Jika nominal TIDAK berubah → update biasa
+        // =====================================================
+
         $iuran->update($data);
 
         return ApiResponse::success($iuran, 'Informasi iuran berhasil diperbarui.');
     }
+
 
 
     public function destroy($id)
