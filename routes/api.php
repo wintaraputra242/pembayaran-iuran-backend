@@ -5,6 +5,7 @@ use App\Http\Controllers\WargaController;
 use App\Http\Controllers\ReguController;
 use App\Http\Controllers\AnggotaReguController;
 use App\Http\Controllers\InformasiIuranController;
+use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\MidtransController;
 use App\Http\Controllers\PembayaranController;
 use Illuminate\Support\Facades\Route;
@@ -64,5 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/midtrans/status/{orderId}', [MidtransController::class, 'checkStatus']);
     Route::post('/midtrans/cancel/{orderId}', [MidtransController::class, 'cancelPayment']);
 
+    // Laporan
+    Route::get('/laporan/pembayaran/export', [LaporanController::class, 'exportPembayaran']);
 });
 
