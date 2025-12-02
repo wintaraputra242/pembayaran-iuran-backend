@@ -11,7 +11,7 @@ use Midtrans\Config;
 use Midtrans\CoreApi;
 
 
-class PembayaranController extends Controller
+class MidtransController extends Controller
 {
     public function createPayment(Request $request)
     {

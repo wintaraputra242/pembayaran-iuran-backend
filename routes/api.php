@@ -5,11 +5,17 @@ use App\Http\Controllers\WargaController;
 use App\Http\Controllers\ReguController;
 use App\Http\Controllers\AnggotaReguController;
 use App\Http\Controllers\InformasiIuranController;
+use App\Http\Controllers\MidtransController;
+use App\Http\Controllers\PembayaranController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/check-nik', [AuthController::class, 'checkNik']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
+
+// Callback midtrans
+Route::post('/midtrans/callback', [MidtransController::class, 'handleCallback']);
+
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
@@ -45,5 +51,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/informasi-iuran', [InformasiIuranController::class, 'store']);
     Route::put('/informasi-iuran/{id}', [InformasiIuranController::class, 'update']);
     Route::delete('/informasi-iuran/{id}', [InformasiIuranController::class, 'destroy']);
+
+    // Pembayaran Iuran
+    Route::get('/pembayaran', [PembayaranController::class, 'index']);
+    Route::get('/pembayaran/{id}', [PembayaranController::class, 'show']);
+    Route::post('/pembayaran', [PembayaranController::class, 'store']);
+    Route::patch('/pembayaran/status/{id}', [PembayaranController::class, 'updateStatusBayar']);
+    Route::get('/pembayaran/riwayat', [PembayaranController::class, 'riwayat']);
+
+    // Midtrans
+    Route::post('/midtrans/create-payment', [MidtransController::class, 'createPayment']);
+    Route::get('/midtrans/status/{orderId}', [MidtransController::class, 'checkStatus']);
+    Route::post('/midtrans/cancel/{orderId}', [MidtransController::class, 'cancelPayment']);
+
 });
 
