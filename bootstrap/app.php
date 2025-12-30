@@ -19,7 +19,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->append(ForceJsonResponse::class);
+        // $middleware->append(ForceJsonResponse::class);
+        $middleware->web(append: [
+           \App\Http\Middleware\VerifyCsrfToken::class,
+        ]);
+        $middleware->api([
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        ]);
+        $middleware->append(
+            \Illuminate\Http\Middleware\HandleCors::class
+        );
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // 🔒 Token Sanctum tidak valid / belum login
