@@ -10,6 +10,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use App\Helpers\ApiResponse;
+use App\Http\Middleware\RoleMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         // $middleware->append(ForceJsonResponse::class);
+        $middleware->alias([
+            'role' => RoleMiddleware::class,
+        ]);
         $middleware->web(append: [
            \App\Http\Middleware\VerifyCsrfToken::class,
         ]);

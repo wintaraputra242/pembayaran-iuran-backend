@@ -8,6 +8,7 @@ use App\Http\Controllers\InformasiIuranController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\MidtransController;
 use App\Http\Controllers\PembayaranController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -81,4 +82,19 @@ Route::middleware('auth:sanctum')->group(function () {
 //     // Laporan
 //     Route::get('/laporan/pembayaran/export', [LaporanController::class, 'exportPembayaran']);
 });
+
+Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+    Route::get('/users', [UserController::class, 'index']);
+    Route::get('/users/credential/download', [UserController::class, 'downloadCredentialPdf']);
+    // Route::post('/users', [UserController::class, 'store']);
+    // Route::get('/users/{user}', [UserController::class, 'show']);
+    // Route::put('/users/{user}', [UserController::class, 'update']);
+    // Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive']);
+    // Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
+
+    // master data regu
+    Route::post('/regu', [ReguController::class, 'store']);
+    // Route::post('/regu/credential/download', [ReguController::class, 'downloadCredentialPdf']);
+});
+
 

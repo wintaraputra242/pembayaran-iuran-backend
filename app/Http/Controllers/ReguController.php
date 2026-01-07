@@ -5,7 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Regu;
 use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+
 
 class ReguController extends Controller
 {
@@ -49,11 +55,12 @@ class ReguController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama_regu' => 'required|string|max:100',
+            'nama_regu' => 'required|string|max:100|unique:regu,nama_regu',
         ], [
             'nama_regu.required' => 'Nama regu wajib diisi.',
             'nama_regu.string' => 'Nama regu harus berupa teks.',
             'nama_regu.max' => 'Nama regu maksimal 100 karakter.',
+            'nama_regu.unique' => 'Nama regu sudah digunakan.',
         ]);
 
         if ($validator->fails()) {
@@ -61,10 +68,65 @@ class ReguController extends Controller
             return ApiResponse::error('Validasi gagal.', $firstError, 422);
         }
 
-        // Simpan data regu
-        $regu = Regu::create($validator->validated());
+        DB::beginTransaction();
 
-        return ApiResponse::success($regu, 'Data regu berhasil ditambahkan.', 201);
+        try {
+            /** 1️⃣ CREATE REGU */
+            $regu = Regu::create([
+                'nama_regu' => $request->nama_regu,
+            ]);
+
+            /** 2️⃣ GENERATE USER */
+            $username = Str::slug($regu->nama_regu, '_');
+            $plainPassword = $username . now()->format('d') . now()->format('s');
+
+            User::create([
+                'name' => $regu->nama_regu,
+                'username' => $username,
+                'password' => Hash::make($plainPassword),
+                'role' => 'ketua_regu',
+                'is_active' => true,
+            ]);
+
+            /** 3️⃣ SIMPAN PASSWORD KE FILE */
+            $passwordPath = 'credentials/passwords.json';
+
+            $passwords = [];
+
+            if (Storage::exists($passwordPath)) {
+                $passwords = json_decode(
+                    Storage::get($passwordPath),
+                    true
+                );
+            }
+
+            $passwords['regu_' . $regu->id] = [
+                'username' => $username,
+                'password' => $plainPassword,
+            ];
+
+            Storage::put(
+                $passwordPath,
+                json_encode($passwords, JSON_PRETTY_PRINT)
+            );
+
+            DB::commit();
+
+            return ApiResponse::success(
+                null,
+                'Regu beserta akunnya berhasil dibuat dan diperbarui.',
+                201
+            );
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return ApiResponse::error(
+                'Terjadi kesalahan.',
+                $e->getMessage(),
+                500
+            );
+        }
     }
 
     public function update(Request $request, $nik)

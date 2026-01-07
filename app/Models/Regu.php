@@ -20,4 +20,10 @@ class Regu extends Model
     {
         return $this->hasMany(AnggotaRegu::class, 'id_regu');
     }
+
+    // Relasi ke user
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'id');
+    }
 }
