@@ -92,6 +92,15 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     // Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive']);
     // Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
 
+    // Warga
+    Route::get('/warga', [WargaController::class, 'index']);
+    Route::get('/warga/{nik}', [WargaController::class, 'show']);
+    Route::post('/warga', [WargaController::class, 'store']);
+    Route::put('/warga/{nik}', [WargaController::class, 'update']);
+    Route::delete('/warga/{nik}', [WargaController::class, 'destroy']);
+    Route::patch('/warga/{nik}/status', [WargaController::class, 'updateStatus']);
+    Route::post('/warga/import-excel', [WargaController::class, 'importExcel']);
+
     // master data regu
     Route::post('/regu', [ReguController::class, 'store']);
     // Route::post('/regu/credential/download', [ReguController::class, 'downloadCredentialPdf']);

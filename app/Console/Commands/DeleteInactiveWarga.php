@@ -20,7 +20,7 @@ class DeleteInactiveWarga extends Command
         $batas = Carbon::now()->subMonth();
 
         // Ambil semua warga yang tidak aktif
-        $semuaWarga = Warga::where('status_keaktifan', 'tidak_aktif')->get();
+        $semuaWarga = Warga::where('is_deleted', true)->get();
 
         // Pisahkan data yang sudah siap dihapus & yang belum
         $siapDihapus = $semuaWarga->filter(function ($item) use ($batas) {

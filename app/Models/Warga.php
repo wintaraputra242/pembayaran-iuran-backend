@@ -16,27 +16,30 @@ class Warga extends Model
 
     protected $fillable = [
         'nik',
+        'id_user',
         'nama_warga',
         'alamat',
         'no_hp',
         'status_keaktifan',
+        'is_deleted',
+        'deleted_at',
     ];
 
     // Relasi ke User (1 warga punya 1 user)
-    public function user()
+    public function users()
     {
-        return $this->hasOne(User::class, 'nik', 'nik');
+        return $this->belongsTo(User::class, 'id_user');
     }
 
-    // Relasi ke anggota_regu
-    public function anggotaRegu()
-    {
-        return $this->hasMany(AnggotaRegu::class, 'nik', 'nik');
-    }
+    // // Relasi ke anggota_regu
+    // public function anggotaRegu()
+    // {
+    //     return $this->hasMany(AnggotaRegu::class, 'nik', 'nik');
+    // }
 
-    // Relasi ke pembayaran
-    public function pembayaran()
-    {
-        return $this->hasMany(Pembayaran::class, 'nik', 'nik');
-    }
+    // // Relasi ke pembayaran
+    // public function pembayaran()
+    // {
+    //     return $this->hasMany(Pembayaran::class, 'nik', 'nik');
+    // }
 }
