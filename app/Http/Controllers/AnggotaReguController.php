@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AnggotaRegu;
 use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class AnggotaReguController extends Controller
@@ -20,8 +21,17 @@ class AnggotaReguController extends Controller
             $query->where('id_regu', $request->id_regu);
         }
 
+        $hasLeader = (clone $query)
+        ->where('is_leader', true)
+        ->exists();
+
+        $query->orderBy('is_leader', 'desc');
+
         return ApiResponse::success(
-            $query->get(),
+            [
+                'data' => $query->get(),
+                'leader_available' => $hasLeader
+            ],
             'Data anggota regu berhasil diambil.'
         );
     }
@@ -42,22 +52,17 @@ class AnggotaReguController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'id_regu' => 'required|exists:regu,id',
-            'nik' => 'required|exists:warga,nik|unique:anggota_regu,nik',
-            'status_keaktifan' => 'required|in:aktif,tidak_aktif',
-            'is_leader' => 'required|boolean'
+            'niks' => 'required|array|min:1',
+            'niks.*' => 'required|exists:warga,nik|distinct',
         ], [
             'id_regu.required' => 'ID regu wajib diisi.',
             'id_regu.exists' => 'Regu tidak ditemukan.',
 
-            'nik.required' => 'NIK wajib diisi.',
-            'nik.exists' => 'Data warga tidak ditemukan.',
-            'nik.unique' => 'Warga ini sudah menjadi anggota regu manapun.',
-
-            'status_keaktifan.required' => 'Status keaktifan wajib diisi.',
-            'status_keaktifan.in' => 'Status hanya boleh aktif atau tidak_aktif.',
-
-            'is_leader.required' => 'Status leader wajib diisi.',
-            'is_leader.boolean' => 'Status leader harus bernilai true atau false.',
+            'niks.required' => 'Warga wajib dipilih.',
+            'niks.array' => 'Format data warga tidak valid.',
+            'niks.min' => 'Minimal pilih satu warga.',
+            'niks.*.exists' => 'Terdapat data warga yang tidak valid.',
+            'niks.*.distinct' => 'Terdapat NIK duplikat.',
         ]);
 
         if ($validator->fails()) {
@@ -68,33 +73,56 @@ class AnggotaReguController extends Controller
             );
         }
 
-        $data = $validator->validated();
+        $niks = $validator->validated()['niks'];
+        $idRegu = $validator->validated()['id_regu'];
+
+        // Cek NIK yang sudah terdaftar sebagai anggota regu manapun
+        $existingNik = AnggotaRegu::whereIn('nik', $niks)
+            ->pluck('nik')
+            ->toArray();
+
+        if (!empty($existingNik)) {
+            return ApiResponse::error(
+                'Validasi gagal.',
+                'Beberapa warga sudah terdaftar sebagai anggota regu.',
+                422,
+                [
+                    'nik_sudah_terdaftar' => $existingNik
+                ]
+            );
+        }
 
         // Cek apakah regu sudah punya leader
-        $existingLeader = AnggotaRegu::where('id_regu', $data['id_regu'])
+        $reguHasLeader = AnggotaRegu::where('id_regu', $idRegu)
             ->where('is_leader', true)
-            ->first();
+            ->exists();
 
-        $blockedLeaderMessage = null;
+        $insertData = [];
 
-        // Jika sudah ada leader, anggota baru tidak boleh menjadi leader
-        if ($existingLeader) {
-            if ($data['is_leader'] == true) {
-                $data['is_leader'] = false;
-                $blockedLeaderMessage = "Anggota berhasil ditambahkan, tetapi tidak dapat menjadi ketua karena regu sudah memiliki ketua.";
-            }
+        foreach ($niks as $nik) {
+            $insertData[] = [
+                'id_regu' => $idRegu,
+                'nik' => $nik,
+                'status_keaktifan' => 'aktif', 
+                'is_leader' => false,          
+            ];
         }
 
-        // Simpan data anggota
-        $anggota = AnggotaRegu::create($data);
+        AnggotaRegu::insert($insertData);
 
         $message = 'Anggota regu berhasil ditambahkan.';
-        if ($blockedLeaderMessage) {
-            $message .= ' ' . $blockedLeaderMessage;
+
+        if (!$reguHasLeader) {
+            $message .= ' Regu belum memiliki ketua.';
         }
 
-        return ApiResponse::success($anggota, $message, 201);
+        return ApiResponse::success(
+            null,
+            $message,
+            201
+        );
     }
+
 
     public function update(Request $request, $nik)
     {
@@ -123,13 +151,17 @@ class AnggotaReguController extends Controller
     }
 
 
-    public function updateLeader(Request $request, $id)
+    public function setLeader(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'id_regu' => 'required|exists:regu,id',
+            'nik' => 'required|exists:anggota_regu,nik',
         ], [
             'id_regu.required' => 'ID regu wajib diisi.',
-            'id_regu.exists' => 'Data regu tidak ditemukan.',
+            'id_regu.exists' => 'Regu tidak ditemukan.',
+
+            'nik.required' => 'NIK wajib diisi.',
+            'nik.exists' => 'Anggota regu tidak ditemukan.',
         ]);
 
         if ($validator->fails()) {
@@ -140,24 +172,105 @@ class AnggotaReguController extends Controller
             );
         }
 
+        $idRegu = $request->id_regu;
+        $nikBaru = $request->nik;
+
+        // Pastikan anggota ini memang milik regu tsb & masih aktif
+        $anggotaBaru = AnggotaRegu::where('id_regu', $idRegu)
+            ->where('nik', $nikBaru)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$anggotaBaru) {
+            return ApiResponse::error(
+                'Data tidak valid.',
+                'Anggota tidak terdaftar atau sudah di-reset.',
+                404
+            );
+        }
+
+        DB::transaction(function () use ($idRegu, $anggotaBaru) {
+
+            // 1️⃣ Turunkan leader lama (jika ada)
+            AnggotaRegu::where('id_regu', $idRegu)
+                ->where('is_leader', true)
+                ->whereNull('deleted_at')
+                ->update(['is_leader' => false]);
+
+            // 2️⃣ Set leader baru
+            $anggotaBaru->update([
+                'is_leader' => true
+            ]);
+        });
+
+        return ApiResponse::success(
+            null,
+            'Ketua regu berhasil diperbarui.',
+            200
+        );
+    }
+
+    public function resetAnggota($id)
+    {
         $anggota = AnggotaRegu::find($id);
 
         if (!$anggota) {
-            return ApiResponse::error('Data anggota regu tidak ditemukan.', null, 404);
+            return ApiResponse::error(
+                'Data tidak ditemukan.',
+                'Anggota regu tidak ditemukan.',
+                404
+            );
         }
 
-        if ($anggota->id_regu != $request->id_regu) {
-            return ApiResponse::error('Anggota ini tidak termasuk dalam regu tersebut.', null, 400);
-        }
-
-        AnggotaRegu::where('id_regu', $request->id_regu)
-            ->update(['is_leader' => false]);
-
-        $anggota->update(['is_leader' => true]);
+        $anggota->delete();
 
         return ApiResponse::success(
-            $anggota,
-            'Ketua regu berhasil diperbarui.'
+            null,
+            'Anggota regu berhasil di-reset.',
+            200
         );
     }
+
+    public function resetAnggotaByRegu($idRegu)
+    {
+        $count = AnggotaRegu::where('id_regu', $idRegu)->count();
+
+        if ($count === 0) {
+            return ApiResponse::error(
+                'Data kosong.',
+                'Tidak ada anggota pada regu ini.',
+                404
+            );
+        }
+
+        AnggotaRegu::where('id_regu', $idRegu)->delete();
+
+        return ApiResponse::success(
+            ['total_reset' => $count],
+            'Semua anggota pada regu berhasil di-reset.',
+            200
+        );
+    }
+
+    public function resetAllAnggota()
+    {
+        $count = AnggotaRegu::count();
+
+        if ($count === 0) {
+            return ApiResponse::error(
+                'Data kosong.',
+                'Tidak ada anggota regu untuk di-reset.',
+                404
+            );
+        }
+
+        AnggotaRegu::query()->delete();
+
+        return ApiResponse::success(
+            null,
+            'Semua anggota dari seluruh regu berhasil di-reset.',
+            200
+        );
+    }
+
 }

@@ -13,6 +13,10 @@ class Regu extends Model
 
     protected $fillable = [
         'nama_regu',
+        'status_keaktifan',
+        'tanggal_nonaktif',
+        'is_deleted',
+        'deleted_at',
     ];
 
     // Relasi ke anggota regu

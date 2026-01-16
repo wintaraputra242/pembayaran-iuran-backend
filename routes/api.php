@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\WargaController;
 use App\Http\Controllers\ReguController;
 use App\Http\Controllers\AnggotaReguController;
+use App\Http\Controllers\DropdownController;
 use App\Http\Controllers\InformasiIuranController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\MidtransController;
@@ -92,6 +93,9 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     // Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive']);
     // Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
 
+    // Dropdown
+    Route::get('/dropdown/warga-for-anggota', [DropdownController::class, 'getDropdownWargaForAddAnggota']);
+
     // Warga
     Route::get('/warga', [WargaController::class, 'index']);
     Route::get('/warga/{nik}', [WargaController::class, 'show']);
@@ -101,8 +105,25 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::patch('/warga/{nik}/status', [WargaController::class, 'updateStatus']);
     Route::post('/warga/import-excel', [WargaController::class, 'importExcel']);
 
-    // master data regu
+    // Regu
+    Route::get('/regu', [ReguController::class, 'index']);
+    Route::get('/regu/{id}', [ReguController::class, 'show']);
     Route::post('/regu', [ReguController::class, 'store']);
+    Route::put('/regu/{id}', [ReguController::class, 'update']);
+    Route::delete('/regu/{id}', [ReguController::class, 'destroy']);
+    Route::patch('/regu/{id}/status', [ReguController::class, 'updateStatus']);
+
+    // Anggota Regu
+    Route::get('/anggota-regu', [AnggotaReguController::class, 'index']);
+    Route::get('/anggota-regu/{id}', [AnggotaReguController::class, 'show']);
+    Route::post('/anggota-regu', [AnggotaReguController::class, 'store']);
+    Route::delete('/anggota-regu/{id}', [AnggotaReguController::class, 'destroy']);
+    Route::put('/anggota-regu/set-leader', [AnggotaReguController::class, 'setLeader']);
+    Route::delete('/anggota-regu/reset/{id}', [AnggotaReguController::class, 'resetAnggota']);
+    Route::delete('/anggota-regu/reset-regu/{idRegu}', [AnggotaReguController::class, 'resetAnggotaByRegu']);
+    Route::delete('/anggota-regu-reset-all', [AnggotaReguController::class, 'resetAllAnggota']);
+
+    // master data regu
     // Route::post('/regu/credential/download', [ReguController::class, 'downloadCredentialPdf']);
 });
 
