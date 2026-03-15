@@ -12,6 +12,7 @@ class Pembayaran extends Model
     protected $table = 'pembayaran';
 
     protected $fillable = [
+        'transaction_id',
         'nik',
         'nik_snapshot',
         'nama_warga_snapshot',
@@ -29,6 +30,11 @@ class Pembayaran extends Model
         'midtrans_qr_string',
         'midtrans_payment_type',
         'midtrans_raw_response',
+        'processed_by'
+    ];
+
+    protected $casts = [
+        'bulan' => 'array',
     ];
 
     // Relasi ke warga
@@ -40,6 +46,11 @@ class Pembayaran extends Model
     // Relasi ke informasi iuran
     public function informasiIuran()
     {
-        return $this->belongsTo(InformasiIuran::class, 'id_informasi_iuran');
+        return $this->belongsTo(InformasiIuran::class, 'id_informasi_iuran', 'id');
+    }
+
+    public function processedBy()
+    {
+        return $this->belongsTo(User::class, 'processed_by');
     }
 }

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2230077ecd6a06faf0b9f98009ba6ecc",
+    "content-hash": "634234b01a75cacd7a3c998d4117c428",
     "packages": [
         {
             "name": "barryvdh/laravel-dompdf",
@@ -2378,6 +2378,150 @@
             "time": "2025-08-22T14:27:06+00:00"
         },
         {
+            "name": "intervention/gif",
+            "version": "4.2.4",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Intervention/gif.git",
+                "reference": "c3598a16ebe7690cd55640c44144a9df383ea73c"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Intervention/gif/zipball/c3598a16ebe7690cd55640c44144a9df383ea73c",
+                "reference": "c3598a16ebe7690cd55640c44144a9df383ea73c",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.1"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^2.1",
+                "phpunit/phpunit": "^10.0 || ^11.0  || ^12.0",
+                "slevomat/coding-standard": "~8.0",
+                "squizlabs/php_codesniffer": "^3.8"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Intervention\\Gif\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Oliver Vogel",
+                    "email": "oliver@intervention.io",
+                    "homepage": "https://intervention.io/"
+                }
+            ],
+            "description": "Native PHP GIF Encoder/Decoder",
+            "homepage": "https://github.com/intervention/gif",
+            "keywords": [
+                "animation",
+                "gd",
+                "gif",
+                "image"
+            ],
+            "support": {
+                "issues": "https://github.com/Intervention/gif/issues",
+                "source": "https://github.com/Intervention/gif/tree/4.2.4"
+            },
+            "funding": [
+                {
+                    "url": "https://paypal.me/interventionio",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/Intervention",
+                    "type": "github"
+                },
+                {
+                    "url": "https://ko-fi.com/interventionphp",
+                    "type": "ko_fi"
+                }
+            ],
+            "time": "2026-01-04T09:27:23+00:00"
+        },
+        {
+            "name": "intervention/image",
+            "version": "3.11.7",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Intervention/image.git",
+                "reference": "2159bcccff18f09d2a392679b81a82c5a003f9bb"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Intervention/image/zipball/2159bcccff18f09d2a392679b81a82c5a003f9bb",
+                "reference": "2159bcccff18f09d2a392679b81a82c5a003f9bb",
+                "shasum": ""
+            },
+            "require": {
+                "ext-mbstring": "*",
+                "intervention/gif": "^4.2",
+                "php": "^8.1"
+            },
+            "require-dev": {
+                "mockery/mockery": "^1.6",
+                "phpstan/phpstan": "^2.1",
+                "phpunit/phpunit": "^10.0 || ^11.0 || ^12.0",
+                "slevomat/coding-standard": "~8.0",
+                "squizlabs/php_codesniffer": "^3.8"
+            },
+            "suggest": {
+                "ext-exif": "Recommended to be able to read EXIF data properly."
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Intervention\\Image\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Oliver Vogel",
+                    "email": "oliver@intervention.io",
+                    "homepage": "https://intervention.io"
+                }
+            ],
+            "description": "PHP Image Processing",
+            "homepage": "https://image.intervention.io",
+            "keywords": [
+                "gd",
+                "image",
+                "imagick",
+                "resize",
+                "thumbnail",
+                "watermark"
+            ],
+            "support": {
+                "issues": "https://github.com/Intervention/image/issues",
+                "source": "https://github.com/Intervention/image/tree/3.11.7"
+            },
+            "funding": [
+                {
+                    "url": "https://paypal.me/interventionio",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/Intervention",
+                    "type": "github"
+                },
+                {
+                    "url": "https://ko-fi.com/interventionphp",
+                    "type": "ko_fi"
+                }
+            ],
+            "time": "2026-02-19T13:11:17+00:00"
+        },
+        {
             "name": "kreait/firebase-php",
             "version": "7.23.0",
             "source": {
@@ -2554,16 +2698,16 @@
         },
         {
             "name": "kreait/laravel-firebase",
-            "version": "6.1.0",
+            "version": "6.2.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/kreait/laravel-firebase.git",
-                "reference": "9cbb24f17a42dbcb447468f0565e65d113e535aa"
+                "url": "https://github.com/beste/laravel-firebase.git",
+                "reference": "1928f8dbf7882f24f9d33eaf5d4bee24b2663981"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kreait/laravel-firebase/zipball/9cbb24f17a42dbcb447468f0565e65d113e535aa",
-                "reference": "9cbb24f17a42dbcb447468f0565e65d113e535aa",
+                "url": "https://api.github.com/repos/beste/laravel-firebase/zipball/1928f8dbf7882f24f9d33eaf5d4bee24b2663981",
+                "reference": "1928f8dbf7882f24f9d33eaf5d4bee24b2663981",
                 "shasum": ""
             },
             "require": {
@@ -2571,7 +2715,7 @@
                 "illuminate/notifications": "^11.0 || ^12.0",
                 "illuminate/support": "^11.0 || ^12.0",
                 "kreait/firebase-php": "^7.19",
-                "php": "~8.2.0 || ~8.3.0 || ~8.4.0",
+                "php": "~8.2.0 || ~8.3.0 || ~8.4.0 || ~8.5.0",
                 "symfony/cache": "^6.1.2 || ^7.0.3"
             },
             "require-dev": {
@@ -2616,8 +2760,8 @@
                 "sdk"
             ],
             "support": {
-                "issues": "https://github.com/kreait/laravel-firebase/issues",
-                "source": "https://github.com/kreait/laravel-firebase/tree/6.1.0"
+                "issues": "https://github.com/beste/laravel-firebase/issues",
+                "source": "https://github.com/beste/laravel-firebase/tree/6.2.0"
             },
             "funding": [
                 {
@@ -2629,7 +2773,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-06-14T13:25:32+00:00"
+            "time": "2025-11-28T14:26:28+00:00"
         },
         {
             "name": "laravel/framework",

@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Models\ActivityLog;
+use App\Models\Regu;
+use Illuminate\Support\Facades\Auth;
 
 class AnggotaReguController extends Controller
 {
@@ -76,6 +79,9 @@ class AnggotaReguController extends Controller
         $niks = $validator->validated()['niks'];
         $idRegu = $validator->validated()['id_regu'];
 
+        // Ambil nama regu
+        $regu = Regu::find($idRegu);
+
         // Cek NIK yang sudah terdaftar sebagai anggota regu manapun
         $existingNik = AnggotaRegu::whereIn('nik', $niks)
             ->pluck('nik')
@@ -116,6 +122,14 @@ class AnggotaReguController extends Controller
             $message .= ' Regu belum memiliki ketua.';
         }
 
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'create',
+            'description' => 'Menambahkan ' . count($niks) . ' anggota ke regu "' . $regu->nama_regu . '".',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
         return ApiResponse::success(
             null,
             $message,
@@ -146,6 +160,14 @@ class AnggotaReguController extends Controller
         if ($isLeader) {
             $message .= ' Anggota yang dihapus merupakan ketua, silakan tunjuk ketua baru jika diperlukan.';
         }
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'delete',
+            'description' => 'Menghapus anggota regu dengan NIK ' . $anggota->nik . ' dari regu ID ' . $anggota->id_regu . '.',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         return ApiResponse::success(null, $message, 200);
     }
@@ -189,6 +211,8 @@ class AnggotaReguController extends Controller
             );
         }
 
+        $regu = Regu::find($idRegu); // ambil nama regu
+
         DB::transaction(function () use ($idRegu, $anggotaBaru) {
 
             // 1️⃣ Turunkan leader lama (jika ada)
@@ -202,6 +226,14 @@ class AnggotaReguController extends Controller
                 'is_leader' => true
             ]);
         });
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'update',
+            'description' => 'Mengubah ketua regu pada regu "' . $regu->nama_regu . '" menjadi warga dengan NIK ' . $nikBaru . '.',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         return ApiResponse::success(
             null,
@@ -224,6 +256,14 @@ class AnggotaReguController extends Controller
 
         $anggota->delete();
 
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'reset',
+            'description' => 'Mereset anggota regu dengan NIK ' . $anggota->nik . '.',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
         return ApiResponse::success(
             null,
             'Anggota regu berhasil di-reset.',
@@ -245,6 +285,16 @@ class AnggotaReguController extends Controller
 
         AnggotaRegu::where('id_regu', $idRegu)->delete();
 
+        $regu = Regu::find($idRegu); // ambil nama regu
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'reset',
+            'description' => 'Mereset seluruh anggota pada regu "' . $regu->nama_regu . '" sebanyak ' . $count . ' warga.',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
         return ApiResponse::success(
             ['total_reset' => $count],
             'Semua anggota pada regu berhasil di-reset.',
@@ -265,6 +315,14 @@ class AnggotaReguController extends Controller
         }
 
         AnggotaRegu::query()->delete();
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'reset',
+            'description' => 'Mereset seluruh anggota dari semua regu.',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         return ApiResponse::success(
             null,
