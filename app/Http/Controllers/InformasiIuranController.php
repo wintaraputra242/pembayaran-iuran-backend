@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use App\Models\ActivityLog;
+use App\Models\Pembayaran;
 use Illuminate\Support\Facades\Auth;
 
 class InformasiIuranController extends Controller
@@ -362,6 +363,12 @@ class InformasiIuranController extends Controller
     public function destroy($id)
     {
         $iuran = InformasiIuran::find($id);
+
+        $pembayaranExists = Pembayaran::where('id_informasi_iuran', $id)->exists();
+
+        if ($pembayaranExists) {
+            return ApiResponse::error('Data tidak bisa dihapus karena sudah digunakan pada pembayaran.', null, 422);
+        }
 
         if (!$iuran) {
             return ApiResponse::error('Informasi iuran tidak ditemukan.', null, 404);
