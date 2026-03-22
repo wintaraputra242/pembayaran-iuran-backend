@@ -405,10 +405,10 @@ class InformasiIuranController extends Controller
             return ApiResponse::error('Validasi gagal.', $firstError, 422);
         }
 
-        $informasiIuran = InformasiIuran::find($id);
+        $informasiIuran = InformasiIuran::withTrashed()->find($id);
 
         if (!$informasiIuran) {
-            ApiResponse::error('Data informasi iuran tidak ditemukan.', null, 404);
+            return ApiResponse::error('Data informasi iuran tidak ditemukan.', null, 404);
         }
 
         // Update status saja

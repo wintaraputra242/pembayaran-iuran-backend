@@ -27,8 +27,8 @@ class ReguController extends Controller
         if ($request->filled('nama_regu')) {
             $query->where('nama_regu', 'LIKE', '%' . $request->nama_regu . '%');
         }
-        if ($request->filled('status_aktif')) {
-            $query->where('status_aktif', '=', $request->status_aktif);
+        if ($request->filled('status_keaktifan')) {
+            $query->where('status_keaktifan', '=', $request->status_keaktifan);
         }
 
         // Pagination
