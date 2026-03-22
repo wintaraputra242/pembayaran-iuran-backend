@@ -6,32 +6,71 @@ use App\Models\InformasiIuran;
 use App\Helpers\ApiResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use App\Models\ActivityLog;
+use Illuminate\Support\Facades\Auth;
 
 class InformasiIuranController extends Controller
 {
     public function index(Request $request)
     {
-        $query = InformasiIuran::select(
-            'id',
-            'jenis_iuran',
-            'periode',
-            'jumlah_iuran',
-            'status_aktif'
-        );
+        $query = InformasiIuran::withTrashed()->with([
+            'warga:nik,nama_warga', 
+        ]);
 
+        /**
+         * 🔍 FILTER KEYWORD
+         * keyword akan mencari ke judul_iuran & jenis_iuran
+         */
+        if ($request->filled('keyword')) {
+            $keyword = $request->keyword;
+
+            $query->where(function ($q) use ($keyword) {
+                $q->where('judul_iuran', 'LIKE', "%{$keyword}%")
+                ->orWhere('nama_warga_meninggal', 'LIKE', "%{$keyword}%")
+                ->orWhereHas('warga', function ($sub) use ($keyword) {
+                    $sub->where('nama_warga', 'LIKE', "%{$keyword}%");
+                });
+            });
+        }
+
+        /**
+         * 🔘 FILTER STATUS
+         */
+        if ($request->filled('status_aktif')) {
+            $query->where('status_aktif', $request->status_aktif);
+        }
+
+        if ($request->filled('jenis_iuran')) {
+            $query->where('jenis_iuran', $request->jenis_iuran);
+        }
+
+        /**
+         * ↕ SORTING
+         */
         $sortBy  = $request->query('sort_by');
         $sortDir = $request->query('sort_dir', 'asc');
 
         if ($sortBy) {
-            $validColumns = \Schema::getColumnListing('informasi_iuran');
+            $validColumns = Schema::getColumnListing('informasi_iuran');
 
             if (in_array($sortBy, $validColumns)) {
-                $query->orderBy($sortBy, strtolower($sortDir) === 'desc' ? 'desc' : 'asc');
+                $query->orderBy(
+                    $sortBy,
+                    strtolower($sortDir) === 'desc' ? 'desc' : 'asc'
+                );
             } else {
                 $query->orderBy('created_at', 'desc');
             }
+        } else {
+            // default sorting
+            $query->orderBy('is_deleted', 'asc');
+            $query->orderBy('created_at', 'desc');
         }
 
+        /**
+         * MODE ADMIN / CLIENT
+         */
         $mode = $request->query('mode', 'client');
 
         if ($mode === 'admin') {
@@ -53,6 +92,7 @@ class InformasiIuranController extends Controller
         );
     }
 
+
     public function show($id)
     {
         $iuran = InformasiIuran::find($id);
@@ -67,12 +107,21 @@ class InformasiIuranController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'judul_iuran' => 'required|string|max:150',
             'jenis_iuran' => 'required|in:bulanan,kematian',
+
+            // hanya untuk bulanan
             'periode' => 'nullable|integer|regex:/^[0-9]{4}$/|min:1900|max:2100',
+
             'jumlah_iuran' => 'required|numeric|min:0',
             'keterangan' => 'nullable|string',
-            'status_aktif' => 'boolean'
+
+            // khusus iuran kematian
+            'nama_warga_meninggal' => 'nullable|string|max:150',
+            'nik_penanggung_jawab' => 'nullable|string|exists:warga,nik',
         ], [
+            'judul_iuran.required' => 'Judul iuran wajib diisi.',
+
             'jenis_iuran.required' => 'Jenis iuran wajib diisi.',
             'jenis_iuran.in' => 'Jenis iuran hanya boleh berisi bulanan atau kematian.',
 
@@ -85,27 +134,36 @@ class InformasiIuranController extends Controller
             'jumlah_iuran.numeric' => 'Jumlah iuran harus berupa angka.',
             'jumlah_iuran.min' => 'Jumlah iuran minimal bernilai 0.',
 
-            'keterangan.string' => 'Keterangan harus berupa teks.',
+            'nik_penanggung_jawab.exists' => 'NIK penanggung jawab tidak ditemukan.',
 
-            'status_aktif.boolean' => 'Status aktif harus bernilai true atau false.',
+            'keterangan.string' => 'Keterangan harus berupa teks.',
         ]);
 
         if ($validator->fails()) {
-            return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
+            return ApiResponse::error(
+                'Validasi gagal.',
+                $validator->errors()->first(),
+                422
+            );
         }
 
         $data = $validator->validated();
 
-        if (isset($data['status_aktif']) && $data['status_aktif'] == false) {
-            $data['tanggal_nonaktif'] = now();
-        } else {
-            $data['tanggal_nonaktif'] = null;
-        }
+        $data['status_aktif'] = true;
 
+        /**
+         * ======================
+         * LOGIC IURAN BULANAN
+         * ======================
+         */
         if ($data['jenis_iuran'] === 'bulanan') {
 
-            if (!$data['periode']) {
-                return ApiResponse::error('Periode wajib diisi untuk iuran bulanan.', null, 422);
+            if (empty($data['periode'])) {
+                return ApiResponse::error(
+                    'Periode wajib diisi untuk iuran bulanan.',
+                    null,
+                    422
+                );
             }
 
             $cek = InformasiIuran::where('jenis_iuran', 'bulanan')
@@ -120,45 +178,84 @@ class InformasiIuranController extends Controller
                     409
                 );
             }
+
+            // pastikan field kematian kosong
+            $data['nama_warga_meninggal'] = null;
+            $data['nik_penanggung_jawab'] = null;
         }
 
+        /**
+         * ======================
+         * LOGIC IURAN KEMATIAN
+         * ======================
+         */
         if ($data['jenis_iuran'] === 'kematian') {
 
             $data['periode'] = null;
 
-            $cek = InformasiIuran::where('jenis_iuran', 'kematian')
-                ->where('status_aktif', true)
-                ->first();
-
-            if ($cek) {
+            if (empty($data['nama_warga_meninggal'])) {
                 return ApiResponse::error(
-                    "Sudah ada informasi iuran kematian yang aktif.",
+                    'Nama warga yang meninggal wajib diisi untuk iuran kematian.',
                     null,
-                    409
+                    422
+                );
+            }
+
+            if (empty($data['nik_penanggung_jawab'])) {
+                return ApiResponse::error(
+                    'Keluarga penanggung jawab wajib diisi untuk iuran kematian.',
+                    null,
+                    422
                 );
             }
         }
 
-        $iuran = InformasiIuran::create($data);
+        InformasiIuran::create($data);
 
-        return ApiResponse::success($iuran, 'Informasi iuran berhasil ditambahkan.', 201);
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'create',
+            'description' => 'Menambahkan informasi iuran "' . $data['judul_iuran'] . '" dengan jenis "' . $data['jenis_iuran'] . '".',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
+        return ApiResponse::success(
+            null,
+            'Informasi iuran berhasil ditambahkan.',
+            201
+        );
     }
 
     public function update(Request $request, $id)
     {
-        $iuran = InformasiIuran::find($id);
+        $informasiIuran = InformasiIuran::find($id);
 
-        if (!$iuran) {
-            return ApiResponse::error('Informasi iuran tidak ditemukan.', null, 404);
+        if (!$informasiIuran) {
+            return ApiResponse::error(
+                'Data informasi iuran tidak ditemukan.',
+                null,
+                404
+            );
         }
 
         $validator = Validator::make($request->all(), [
-            'jenis_iuran' => 'sometimes|in:bulanan,kematian',
+            'judul_iuran' => 'required|string|max:150',
+            'jenis_iuran' => 'required|in:bulanan,kematian',
+
+            // hanya untuk bulanan
             'periode' => 'nullable|integer|regex:/^[0-9]{4}$/|min:1900|max:2100',
-            'jumlah_iuran' => 'sometimes|required|numeric|min:0',
+
+            'jumlah_iuran' => 'required|numeric|min:0',
             'keterangan' => 'nullable|string',
-            'status_aktif' => 'boolean'
+
+            // khusus iuran kematian
+            'nama_warga_meninggal' => 'nullable|string|max:150',
+            'nik_penanggung_jawab' => 'nullable|string|exists:warga,nik',
         ], [
+            'judul_iuran.required' => 'Judul iuran wajib diisi.',
+
+            'jenis_iuran.required' => 'Jenis iuran wajib diisi.',
             'jenis_iuran.in' => 'Jenis iuran hanya boleh berisi bulanan atau kematian.',
 
             'periode.regex' => 'Periode harus berupa tahun 4 digit, misalnya 2025.',
@@ -170,114 +267,97 @@ class InformasiIuranController extends Controller
             'jumlah_iuran.numeric' => 'Jumlah iuran harus berupa angka.',
             'jumlah_iuran.min' => 'Jumlah iuran minimal bernilai 0.',
 
-            'keterangan.string' => 'Keterangan harus berupa teks.',
+            'nik_penanggung_jawab.exists' => 'NIK penanggung jawab tidak ditemukan.',
 
-            'status_aktif.boolean' => 'Status aktif harus bernilai true atau false.',
+            'keterangan.string' => 'Keterangan harus berupa teks.',
         ]);
 
         if ($validator->fails()) {
-            return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
+            return ApiResponse::error(
+                'Validasi gagal.',
+                $validator->errors()->first(),
+                422
+            );
         }
 
         $data = $validator->validated();
 
-        if (isset($data['status_aktif']) && $data['status_aktif'] == false) {
-            $data['tanggal_nonaktif'] = now();
-        } else {
-            $data['tanggal_nonaktif'] = null;
-        }
+        /**
+         * ======================
+         * LOGIC IURAN BULANAN
+         * ======================
+         */
+        if ($data['jenis_iuran'] === 'bulanan') {
 
-        $jenis = $data['jenis_iuran'] ?? $iuran->jenis_iuran;
-
-        // =============================
-        // VALIDASI UNTUK BULANAN
-        // =============================
-        if ($jenis === 'bulanan') {
-
-            $periode = $data['periode'] ?? $iuran->periode;
-            if (!$periode) {
-                return ApiResponse::error('Periode wajib diisi untuk iuran bulanan.', null, 422);
+            if (empty($data['periode'])) {
+                return ApiResponse::error(
+                    'Periode wajib diisi untuk iuran bulanan.',
+                    null,
+                    422
+                );
             }
 
             $cek = InformasiIuran::where('jenis_iuran', 'bulanan')
-                ->where('periode', $periode)
+                ->where('periode', $data['periode'])
                 ->where('status_aktif', true)
-                ->where('id', '!=', $iuran->id)
+                ->where('id', '!=', $informasiIuran->id) // ⬅️ PENTING
                 ->first();
 
             if ($cek) {
                 return ApiResponse::error(
-                    "Iuran bulanan untuk tahun {$periode} sudah ada dan masih aktif.",
+                    "Iuran bulanan untuk tahun {$data['periode']} sudah ada dan masih aktif.",
                     null,
                     409
                 );
             }
 
-            $data['periode'] = $periode;
+            // pastikan field kematian kosong
+            $data['nama_warga_meninggal'] = null;
+            $data['nik_penanggung_jawab'] = null;
         }
 
-        // =============================
-        // VALIDASI UNTUK KEMATIAN
-        // =============================
-        if ($jenis === 'kematian') {
+        /**
+         * ======================
+         * LOGIC IURAN KEMATIAN
+         * ======================
+         */
+        if ($data['jenis_iuran'] === 'kematian') {
 
             $data['periode'] = null;
 
-            $cek = InformasiIuran::where('jenis_iuran', 'kematian')
-                ->where('status_aktif', true)
-                ->where('id', '!=', $iuran->id)
-                ->first();
-
-            if ($cek) {
+            if (empty($data['nama_warga_meninggal'])) {
                 return ApiResponse::error(
-                    "Sudah ada informasi iuran kematian yang aktif.",
+                    'Nama warga yang meninggal wajib diisi untuk iuran kematian.',
                     null,
-                    409
+                    422
+                );
+            }
+
+            if (empty($data['nik_penanggung_jawab'])) {
+                return ApiResponse::error(
+                    'Keluarga penanggung jawab wajib diisi untuk iuran kematian.',
+                    null,
+                    422
                 );
             }
         }
 
-        // =====================================================
-        // *PERUBAHAN UTAMA*: Jika jumlah_iuran berubah → buat data baru
-        // =====================================================
+        $informasiIuran->update($data);
 
-        // Jika user tidak mengirim jumlah_iuran → tetap gunakan nilai lama
-        $jumlahBaru = $data['jumlah_iuran'] ?? $iuran->jumlah_iuran;
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'update',
+            'description' => 'Memperbarui informasi iuran "' . $informasiIuran->judul_iuran . '".',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
-        if ($jumlahBaru != $iuran->jumlah_iuran) {
-
-            // Nonaktifkan data lama
-            $iuran->update([
-                'status_aktif' => false,
-                'tanggal_nonaktif' => now(),
-            ]);
-
-            // Buat data baru
-            $newIuran = InformasiIuran::create([
-                'jenis_iuran'   => $jenis,
-                'periode'       => $data['periode'] ?? $iuran->periode,
-                'jumlah_iuran'  => $jumlahBaru,
-                'keterangan'    => $data['keterangan'] ?? $iuran->keterangan,
-                'status_aktif'  => true,
-                'tanggal_nonaktif' => null,
-            ]);
-
-            return ApiResponse::success(
-                $newIuran,
-                'Jumlah iuran berubah. Data baru telah dibuat dan data lama dinonaktifkan.'
-            );
-        }
-
-        // =====================================================
-        // Jika nominal TIDAK berubah → update biasa
-        // =====================================================
-
-        $iuran->update($data);
-
-        return ApiResponse::success($iuran, 'Informasi iuran berhasil diperbarui.');
+        return ApiResponse::success(
+            null,
+            'Informasi iuran berhasil diperbarui.',
+            200
+        );
     }
-
-
 
     public function destroy($id)
     {
@@ -289,12 +369,67 @@ class InformasiIuranController extends Controller
 
         $iuran->status_aktif = false;
         $iuran->tanggal_nonaktif = now();
+        $iuran->is_deleted = true;
+        $iuran->deleted_at = now();
         $iuran->save();
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'delete',
+            'description' => 'Menonaktifkan informasi iuran "' . $iuran->judul_iuran . '".',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         return ApiResponse::success(
             null, 
-            'Informasi iuran berhasil dinonaktifkan. Data akan dihapus permanen setelah 30 hari.'
+            'Untuk sementara, data informasi iuran berhasil di nonaktifkan. Setelah 1 bulan berlalu, data informasi iuran baru benar-benar dihapus.'
         );
+    }
+
+    public function updateStatus(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'status_aktif' => 'nullable|numeric',
+        ]);
+
+        if ($validator->fails()) {
+            $firstError = collect($validator->errors()->all())->first();
+            return ApiResponse::error('Validasi gagal.', $firstError, 422);
+        }
+
+        $informasiIuran = InformasiIuran::find($id);
+
+        if (!$informasiIuran) {
+            ApiResponse::error('Data informasi iuran tidak ditemukan.', null, 404);
+        }
+
+        // Update status saja
+        $informasiIuran->status_aktif = $request->status_aktif;
+
+        // Jika status diubah menjadi tidak aktif → catat tanggal_nonaktif
+        if ($request->status_aktif === 0) {
+            $informasiIuran->tanggal_nonaktif = now();
+        }
+
+        // Jika status diubah kembali menjadi aktif → reset tanggal_nonaktif
+        if ($request->status_aktif === 1) {
+            $informasiIuran->tanggal_nonaktif = null;
+            $informasiIuran->is_deleted = false;
+            $informasiIuran->deleted_at = null;
+        }
+
+        $informasiIuran->save();
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'update',
+            'description' => 'Mengubah status informasi iuran "' . $informasiIuran->judul_iuran . '" menjadi ' . ($request->status_aktif ? 'aktif' : 'tidak aktif') . '.',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
+        return ApiResponse::success(null, 'Status keaktifan berhasil diperbarui.');
     }
 
 }

@@ -31,6 +31,19 @@ class Warga extends Model
         return $this->belongsTo(User::class, 'id_user');
     }
 
+    public function pembayaran()
+    {
+        return $this->hasMany(Pembayaran::class, 'nik', 'nik');
+    }
+
+    public function anggotaRegu()
+    {
+        return $this->hasOne(AnggotaRegu::class, 'nik', 'nik')
+            ->whereNull('deleted_at')
+            ->where('status_keaktifan', 1);
+    }
+
+
     // // Relasi ke anggota_regu
     // public function anggotaRegu()
     // {

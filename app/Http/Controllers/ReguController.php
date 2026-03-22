@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use App\Models\ActivityLog;
+use Illuminate\Support\Facades\Auth;
 
 
 class ReguController extends Controller
@@ -25,8 +27,8 @@ class ReguController extends Controller
         if ($request->filled('nama_regu')) {
             $query->where('nama_regu', 'LIKE', '%' . $request->nama_regu . '%');
         }
-        if ($request->filled('status_keaktifan')) {
-            $query->where('status_keaktifan', '=', $request->status_keaktifan);
+        if ($request->filled('status_aktif')) {
+            $query->where('status_aktif', '=', $request->status_aktif);
         }
 
         // Pagination
@@ -116,6 +118,14 @@ class ReguController extends Controller
 
             DB::commit();
 
+            ActivityLog::create([
+                'id_user' => Auth::id(),
+                'action' => 'create',
+                'description' => 'Menambahkan regu baru dengan nama "' . $regu->nama_regu . '" beserta akun ketua regu.',
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+
             return ApiResponse::success(
                 null,
                 'Regu beserta akunnya berhasil dibuat dan diperbarui.',
@@ -204,6 +214,14 @@ class ReguController extends Controller
 
             DB::commit();
 
+            ActivityLog::create([
+                'id_user' => Auth::id(),
+                'action' => 'update',
+                'description' => 'Memperbarui data regu dari "' . $oldNamaRegu . '" menjadi "' . $regu->nama_regu . '".',
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+
             return ApiResponse::success(
                 $regu,
                 'Data regu, akun, dan password berhasil diperbarui.'
@@ -244,6 +262,14 @@ class ReguController extends Controller
             $regu->deleted_at = now();
             $regu->save();
         });
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'delete',
+            'description' => 'Menonaktifkan regu "' . $regu->nama_regu . '" dan menghapus seluruh anggota dari regu tersebut.',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         return ApiResponse::success(
             null,
@@ -286,6 +312,14 @@ class ReguController extends Controller
         }
 
         $regu->save();
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'update',
+            'description' => 'Mengubah status regu "' . $regu->nama_regu . '" menjadi ' . $request->status_keaktifan . '.',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         return ApiResponse::success(null, 'Status keaktifan berhasil diperbarui.');
     }

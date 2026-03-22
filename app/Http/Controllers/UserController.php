@@ -9,6 +9,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\ActivityLog;
+use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
@@ -73,6 +75,14 @@ class UserController extends Controller
                 'password' => $passwords[$key]['password'] ?? '-',
             ];
         }
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'download',
+            'description' => 'Mengunduh PDF kredensial akun regu',
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         $pdf = Pdf::loadView('pdf.credential-global-table', [
             'rows' => $rows,

@@ -9,6 +9,8 @@ use App\Helpers\ApiResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel as FacadesExcel;
+use App\Models\ActivityLog;
+use Illuminate\Support\Facades\Auth;
 
 class WargaController extends Controller
 {
@@ -105,6 +107,14 @@ class WargaController extends Controller
             // Simpan data warga
             Warga::create($newReqParams);
 
+            ActivityLog::create([
+                'id_user' => Auth::id(),
+                'action' => 'create',
+                'description' => 'Menambahkan data warga baru dengan NIK ' . $request->nik,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+
             DB::commit();
     
             return ApiResponse::success(null, 'Data warga berhasil ditambahkan.', 201);
@@ -150,6 +160,14 @@ class WargaController extends Controller
         // update data warga
         $warga->update($validator->validated());
 
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'update',
+            'description' => 'Memperbarui data warga dengan NIK ' . $warga->nik,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
         return ApiResponse::success(null, 'Data warga berhasil diperbarui.');
     }
 
@@ -167,6 +185,14 @@ class WargaController extends Controller
         $warga->is_deleted = true;
         $warga->deleted_at = now();
         $warga->save();
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'delete',
+            'description' => 'Menonaktifkan data warga dengan NIK ' . $warga->nik,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         return ApiResponse::success(null, 'Untuk sementara, data warga berhasil di nonaktifkan. Setelah 1 bulan berlalu, data warga baru benar-benar dihapus');
     }
@@ -208,6 +234,14 @@ class WargaController extends Controller
         }
 
         $warga->save();
+
+        ActivityLog::create([
+            'id_user' => Auth::id(),
+            'action' => 'update',
+            'description' => 'Mengubah status warga NIK ' . $warga->nik . ' menjadi ' . $request->status_keaktifan,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
 
         return ApiResponse::success(null, 'Status keaktifan berhasil diperbarui.');
     }
@@ -264,6 +298,14 @@ class WargaController extends Controller
             }
 
             DB::commit();
+
+            ActivityLog::create([
+                'id_user' => Auth::id(),
+                'action' => 'import',
+                'description' => "Import data warga melalui Excel. Berhasil: {$inserted}, dilewati: {$skipped}",
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
 
             return ApiResponse::success(null, 'Import data berhasil dilakukan');
 

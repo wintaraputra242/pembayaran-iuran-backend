@@ -24,4 +24,14 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    public function devices()
+    {
+        return $this->hasMany(UserDevice::class);
+    }
+
+    public function regu()
+    {
+        return $this->hasOne(Regu::class, 'id_user');
+    }
 }
