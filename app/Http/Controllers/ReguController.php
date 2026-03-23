@@ -86,13 +86,16 @@ class ReguController extends Controller
             $username = Str::slug($regu->nama_regu, '_');
             $plainPassword = $username . now()->format('d') . now()->format('s');
 
-            User::create([
+            $user = User::create([
                 'name' => $regu->nama_regu,
                 'username' => $username,
                 'password' => Hash::make($plainPassword),
                 'role' => 'ketua_regu',
                 'is_active' => true,
             ]);
+
+            $regu->id_user = $user->id;
+            $regu->save();
 
             /** 3️⃣ SIMPAN PASSWORD KE FILE */
             $passwordPath = 'credentials/passwords.json';

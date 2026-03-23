@@ -137,6 +137,7 @@ Route::middleware(['auth:sanctum', 'role:admin,ketua_regu'])->group(function () 
     Route::put('/informasi-iuran/{id}', [InformasiIuranController::class, 'update']);
     Route::delete('/informasi-iuran/{id}', [InformasiIuranController::class, 'destroy']);
     Route::patch('/informasi-iuran/{id}/status', [InformasiIuranController::class, 'updateStatus']);
+    Route::get('/informasi-iuran-active', [InformasiIuranController::class, 'getActiveInformasiIuranForPayment']);
 
     // master data regu
     // Route::post('/regu/credential/download', [ReguController::class, 'downloadCredentialPdf']);

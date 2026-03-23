@@ -439,4 +439,28 @@ class InformasiIuranController extends Controller
         return ApiResponse::success(null, 'Status keaktifan berhasil diperbarui.');
     }
 
+    public function getActiveInformasiIuranForPayment(Request $request)
+    {
+        $perPage = $request->get('per_page', 10);
+
+        $query = InformasiIuran::with([
+            'warga:nik,nama_warga'
+        ])
+        ->where('status_aktif', 1); // hanya aktif
+
+        // 🔥 filter jenis_iuran (optional)
+        if ($request->filled('jenis_iuran')) {
+            $query->where('jenis_iuran', $request->jenis_iuran);
+        }
+
+        $data = $query
+            ->orderBy('judul_iuran')
+            ->paginate($perPage);
+
+        return ApiResponse::success(
+            $data,
+            'Data informasi iuran aktif berhasil diambil.'
+        );
+    }
+
 }
