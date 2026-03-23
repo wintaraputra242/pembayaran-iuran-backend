@@ -274,6 +274,10 @@ class AnggotaReguController extends Controller
             );
         }
 
+        $anggota->status_keaktifan = 'tidak_aktif';
+
+        $anggota->save();
+
         $anggota->delete();
 
         ActivityLog::create([
@@ -293,9 +297,10 @@ class AnggotaReguController extends Controller
 
     public function resetAnggotaByRegu($idRegu)
     {
-        $count = AnggotaRegu::where('id_regu', $idRegu)->count();
+        $data = AnggotaRegu::where('id_regu', $idRegu);
+        $anggotaList = $data->get();
 
-        if ($count === 0) {
+        if ($anggotaList->isEmpty()) {
             return ApiResponse::error(
                 'Data kosong.',
                 'Tidak ada anggota pada regu ini.',
@@ -303,14 +308,21 @@ class AnggotaReguController extends Controller
             );
         }
 
-        AnggotaRegu::where('id_regu', $idRegu)->delete();
+        $count = $anggotaList->count();
 
-        $regu = Regu::find($idRegu); // ambil nama regu
+        foreach ($anggotaList as $anggota) {
+            $anggota->status_keaktifan = 'tidak_aktif';
+            $anggota->save();
+        }
+
+        $data->delete();
+
+        $regu = Regu::find($idRegu);
 
         ActivityLog::create([
             'id_user' => Auth::id(),
             'action' => 'reset',
-            'description' => 'Mereset seluruh anggota pada regu "' . $regu->nama_regu . '" sebanyak ' . $count . ' warga.',
+            'description' => 'Mereset seluruh anggota pada regu "' . ($regu->nama_regu ?? '-') . '" sebanyak ' . $count . ' warga.',
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
         ]);
@@ -334,18 +346,22 @@ class AnggotaReguController extends Controller
             );
         }
 
+        AnggotaRegu::query()->update([
+            'status_keaktifan' => 'tidak_aktif'
+        ]);
+
         AnggotaRegu::query()->delete();
 
         ActivityLog::create([
             'id_user' => Auth::id(),
             'action' => 'reset',
-            'description' => 'Mereset seluruh anggota dari semua regu.',
+            'description' => 'Mereset seluruh anggota dari semua regu sebanyak ' . $count . ' data.',
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
         ]);
 
         return ApiResponse::success(
-            null,
+            ['total_reset' => $count],
             'Semua anggota dari seluruh regu berhasil di-reset.',
             200
         );

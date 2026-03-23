@@ -74,12 +74,14 @@ class PembayaranController extends Controller
         );
     }
 
-    public function show($id)
+    public function show($nik)
     {
         $pembayaran = Pembayaran::with([
             'warga',
             'informasiIuran'
-        ])->find($id);
+        ])
+        ->where('nik', $nik)
+        ->first();
 
         if (!$pembayaran) {
             return ApiResponse::error(
@@ -560,7 +562,7 @@ class PembayaranController extends Controller
         $warga = Warga::with('users.devices')->findOrFail($request->nik);
 
         // Ambil iuran yang belum dibayar oleh warga ini
-        $paidIuranIds = Pembayaran::where('warga_id', $warga->nik)
+        $paidIuranIds = Pembayaran::where('nik', $warga->nik)
             ->where('status_bayar', 'paid')
             ->pluck('id_informasi_iuran');
 

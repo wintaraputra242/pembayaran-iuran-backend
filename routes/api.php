@@ -143,7 +143,7 @@ Route::middleware(['auth:sanctum', 'role:admin,ketua_regu'])->group(function () 
 
     // Pembayaran Iuran
     Route::get('/pembayaran', [PembayaranController::class, 'index']);
-    Route::get('/pembayaran/{id}', [PembayaranController::class, 'show']);
+    Route::get('/pembayaran/{nik}', [PembayaranController::class, 'show']);
     Route::post('/pembayaran', [PembayaranController::class, 'store']);
     Route::get('/pembayaran-unpaid-payment', [PembayaranController::class, 'wargaUnpaidPayment']);
     Route::post('/pembayaran-notify-unpaid', 
