@@ -14,22 +14,25 @@ use App\Http\Middleware\RoleMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        api: __DIR__.'/../routes/api.php',
-        commands: __DIR__.'/../routes/console.php',
+        web: __DIR__ . '/../routes/web.php',
+        api: __DIR__ . '/../routes/api.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // $middleware->append(ForceJsonResponse::class);
         $middleware->alias([
             'role' => RoleMiddleware::class,
         ]);
-        $middleware->web(append: [
-           \App\Http\Middleware\VerifyCsrfToken::class,
-        ]);
-        $middleware->api([
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-        ]);
+
+        // hapus block web() ini sepenuhnya
+        // $middleware->web(append: [
+        //     \App\Http\Middleware\VerifyCsrfToken::class,
+        // ]);
+
+        // $middleware->api([
+        //     \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        // ]);
+
         $middleware->append(
             \Illuminate\Http\Middleware\HandleCors::class
         );
@@ -37,9 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions) {
         // 🔒 Token Sanctum tidak valid / belum login
         $exceptions->render(function (AuthenticationException $e, $request) {
-            if ($request->is('api/*')) {
-                return ApiResponse::error('Tidak terautentikasi. Token tidak valid atau belum diberikan.', null, 401);
-            }
+            return ApiResponse::error('Tidak terautentikasi. Token tidak valid atau sudah kadaluarsa.', null, 401);
         });
 
         // 🧾 Error validasi
@@ -68,8 +69,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 );
             }
         });
-        
     })
+
     ->withSchedule(function (Schedule $schedule) {
         $schedule->command('warga:delete-inactive')->daily();
         $schedule->command('informasi-iuran:delete-inactive')->daily();

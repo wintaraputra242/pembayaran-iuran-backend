@@ -2,57 +2,60 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Warga;
-use App\Models\User;
-use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use Maatwebsite\Excel\Facades\Excel as FacadesExcel;
 use App\Models\ActivityLog;
+use App\Models\Warga;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Maatwebsite\Excel\Facades\Excel as FacadesExcel;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WargaController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $query = Warga::query();
 
-        // Global keyword search
         if ($request->filled('keyword')) {
             $keyword = $request->keyword;
-
             $query->where(function ($q) use ($keyword) {
                 $q->where('nik', 'LIKE', "%{$keyword}%")
-                ->orWhere('nama_warga', 'LIKE', "%{$keyword}%")
-                ->orWhere('no_hp', 'LIKE', "%{$keyword}%");
+                    ->orWhere('nama_warga', 'LIKE', "%{$keyword}%")
+                    ->orWhere('no_hp', 'LIKE', "%{$keyword}%");
             });
         }
 
         if ($request->filled('status_keaktifan')) {
-            $statusKeaktifan = $request->status_keaktifan;
-
-            $query->where('status_keaktifan', '=', $statusKeaktifan);
+            $query->where('status_keaktifan', $request->status_keaktifan);
         }
 
-        // Pagination
+        if ($request->boolean('include_deleted')) {
+            $query->withTrashed();
+        }
+
         $limit = $request->get('limit', 10);
 
         $warga = $query
-            ->orderBy('is_deleted', 'asc')
+            ->orderByRaw('deleted_at IS NOT NULL ASC')
             ->orderBy('created_at', 'desc')
             ->paginate($limit);
 
-        return ApiResponse::success(
-            $warga,
-            'Data warga berhasil diambil.',
-            200
-        );
+        return ApiResponse::success($warga, 'Data warga berhasil diambil.');
     }
 
-    public function show($nik)
+    public function show(string $nik): JsonResponse
     {
-        $warga = Warga::find($nik);
+        $warga = Warga::withTrashed()->find($nik);
 
         if (!$warga) {
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
@@ -61,77 +64,53 @@ class WargaController extends Controller
         return ApiResponse::success($warga, 'Detail warga berhasil diambil.');
     }
 
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'nik' => 'required|string|unique:warga,nik',
+            'nik'        => 'required|string|max:32|unique:warga,nik',
             'nama_warga' => 'required|string|max:100',
-            'alamat' => 'required|string',
-            'no_hp' => 'nullable|string|max:20',
-            // 'status_keaktifan' => 'nullable|in:aktif,tidak_aktif',
+            'alamat'     => 'required|string',
+            'no_hp'      => 'required|string|max:20',
         ], [
-            'nik.required' => 'NIK wajib diisi.',
-            'nik.string' => 'NIK harus berupa teks.',
-            'nik.unique' => 'NIK sudah terdaftar.',
-
+            'nik.required'        => 'NIK wajib diisi.',
+            'nik.string'          => 'NIK harus berupa teks.',
+            'nik.max'             => 'NIK maksimal 32 karakter.',
+            'nik.unique'          => 'NIK sudah terdaftar.',
             'nama_warga.required' => 'Nama warga wajib diisi.',
-            'nama_warga.string' => 'Nama warga harus berupa teks.',
-            'nama_warga.max' => 'Nama warga maksimal 100 karakter.',
-
-            'alamat.required' => 'Alamat wajib diisi.',
-            'alamat.string' => 'Alamat harus berupa teks.',
-
-            'no_hp.string' => 'Nomor HP harus berupa teks.',
-            'no_hp.max' => 'Nomor HP maksimal 20 karakter.',
-
-            // 'status_keaktifan.in' => 'Status keaktifan hanya boleh: aktif atau tidak_aktif.',
+            'nama_warga.string'   => 'Nama warga harus berupa teks.',
+            'nama_warga.max'      => 'Nama warga maksimal 100 karakter.',
+            'alamat.required'     => 'Alamat wajib diisi.',
+            'alamat.string'       => 'Alamat harus berupa teks.',
+            'no_hp.required'      => 'Nomor HP wajib diisi.',
+            'no_hp.string'        => 'Nomor HP harus berupa teks.',
+            'no_hp.max'           => 'Nomor HP maksimal 20 karakter.',
         ]);
 
         if ($validator->fails()) {
-            $firstError = collect($validator->errors()->all())->first();
-            return ApiResponse::error('Validasi gagal.', $firstError, 422);
+            return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
         }
 
         DB::beginTransaction();
 
         try {
-            
-            $newReqParams = [
+            Warga::create([
                 ...$validator->validated(),
-                'id_user' => null,
+                'id_user'          => null,
                 'status_keaktifan' => 'aktif',
-                'id_deleted' => null,
-                'deleted_at' => null,
-            ];
-    
-            // Simpan data warga
-            Warga::create($newReqParams);
-
-            ActivityLog::create([
-                'id_user' => Auth::id(),
-                'action' => 'create',
-                'description' => 'Menambahkan data warga baru dengan NIK ' . $request->nik,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
             ]);
 
-            DB::commit();
-    
-            return ApiResponse::success(null, 'Data warga berhasil ditambahkan.', 201);
+            $this->writeLog('create', "Menambahkan data warga baru dengan NIK {$request->nik}", $request);
 
+            DB::commit();
+
+            return ApiResponse::success(null, 'Data warga berhasil ditambahkan.', 201);
         } catch (\Throwable $e) {
             DB::rollBack();
-
-            return ApiResponse::error(
-                'Terjadi kesalahan.',
-                $e->getMessage(),
-                500
-            );
+            return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
-
     }
 
-    public function update(Request $request, $nik)
+    public function update(Request $request, string $nik): JsonResponse
     {
         $warga = Warga::find($nik);
 
@@ -139,157 +118,156 @@ class WargaController extends Controller
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
-        $validator = Validator::make($request->all(), [
-            'nik' => 'sometimes|required|string|unique:warga,nik,' . $nik . ',nik',
-            'nama_warga' => 'sometimes|required|string|max:100',
-            'alamat' => 'sometimes|required|string',
-            'no_hp' => 'nullable|string|max:20',
-        ], [
-            'nik.unique' => 'Nik sudah terdaftar.',
-            'nik.required' => 'Nik wajib diisi.',
+        dd($request);
 
+        $validator = Validator::make($request->all(), [
+            'nama_warga' => 'sometimes|required|string|max:100',
+            'alamat'     => 'sometimes|required|string',
+            'no_hp'      => 'nullable|string|max:20',
+        ], [
             'nama_warga.required' => 'Nama warga wajib diisi.',
-            'alamat.required' => 'Alamat wajib diisi.',
+            'nama_warga.max'      => 'Nama warga maksimal 100 karakter.',
+            'alamat.required'     => 'Alamat wajib diisi.',
+            'no_hp.max'           => 'Nomor HP maksimal 20 karakter.',
         ]);
 
         if ($validator->fails()) {
-            $firstError = collect($validator->errors()->all())->first();
-            return ApiResponse::error('Validasi gagal.', $firstError, 422);
+            return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
         }
 
-        // update data warga
         $warga->update($validator->validated());
 
-        ActivityLog::create([
-            'id_user' => Auth::id(),
-            'action' => 'update',
-            'description' => 'Memperbarui data warga dengan NIK ' . $warga->nik,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
+        $this->writeLog('update', "Memperbarui data warga NIK {$warga->nik}", $request);
 
         return ApiResponse::success(null, 'Data warga berhasil diperbarui.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, string $nik): JsonResponse
     {
-        $warga = Warga::find($id);
+        $warga = Warga::find($nik);
 
         if (!$warga) {
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
-        // Tandai tidak aktif, jangan hapus
-        $warga->status_keaktifan = 'tidak_aktif';
-        $warga->tanggal_nonaktif = now();
-        $warga->is_deleted = true;
-        $warga->deleted_at = now();
-        $warga->save();
+        try {
+            $warga->status_keaktifan = 'tidak_aktif';
+            $warga->save();
 
-        ActivityLog::create([
-            'id_user' => Auth::id(),
-            'action' => 'delete',
-            'description' => 'Menonaktifkan data warga dengan NIK ' . $warga->nik,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
+            $warga->delete();
 
-        return ApiResponse::success(null, 'Untuk sementara, data warga berhasil di nonaktifkan. Setelah 1 bulan berlalu, data warga baru benar-benar dihapus');
+            $this->writeLog('delete', "Soft delete warga NIK {$warga->nik} ({$warga->nama_warga})", $request);
+
+            return ApiResponse::success(
+                null,
+                'Data warga berhasil dinonaktifkan.'
+            );
+        } catch (ValidationException $e) {
+            return ApiResponse::error(
+                'Tidak dapat menghapus warga.',
+                collect($e->errors())->flatten()->first(),
+                422
+            );
+        } catch (\Throwable $e) {
+            return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
+        }
     }
 
-    public function updateStatus(Request $request, $nik)
+    public function updateStatus(Request $request, string $nik): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'status_keaktifan' => 'nullable|in:aktif,tidak_aktif',
+            'status_keaktifan' => ['required', Rule::in(['aktif', 'tidak_aktif'])],
         ], [
-            'status_keaktifan.in' => 'Status keaktifan hanya boleh aktif atau tidak_aktif.',
+            'status_keaktifan.required' => 'Status keaktifan wajib diisi.',
+            'status_keaktifan.in'       => 'Status keaktifan hanya boleh: aktif atau tidak_aktif.',
         ]);
 
         if ($validator->fails()) {
-            $firstError = collect($validator->errors()->all())->first();
-            return ApiResponse::error('Validasi gagal.', $firstError, 422);
+            return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
         }
 
-        $warga = Warga::find($nik);
+        $warga = Warga::withTrashed()->find($nik);
 
         if (!$warga) {
-            return response()->json([
-                'message' => 'Warga tidak ditemukan'
-            ], 404);
+            return ApiResponse::error('Warga tidak ditemukan.', null, 404);
         }
 
-        // Update status saja
-        $warga->status_keaktifan = $request->status_keaktifan;
+        $statusBaru = $request->status_keaktifan;
 
-        // Jika status diubah menjadi tidak aktif → catat tanggal_nonaktif
-        if ($request->status_keaktifan === 'tidak_aktif') {
-            $warga->tanggal_nonaktif = now();
+
+        if ($warga->trashed() && $statusBaru === 'aktif') {
+            $warga->restore();
         }
 
-        // Jika status diubah kembali menjadi aktif → reset tanggal_nonaktif
-        if ($request->status_keaktifan === 'aktif') {
-            $warga->tanggal_nonaktif = null;
-            $warga->is_deleted = false;
-            $warga->deleted_at = null;
-        }
-
+        $warga->status_keaktifan = $statusBaru;
         $warga->save();
 
-        ActivityLog::create([
-            'id_user' => Auth::id(),
-            'action' => 'update',
-            'description' => 'Mengubah status warga NIK ' . $warga->nik . ' menjadi ' . $request->status_keaktifan,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
+        $this->writeLog(
+            'update_status',
+            "Mengubah status warga NIK {$warga->nik} ({$warga->nama_warga}) menjadi {$statusBaru}",
+            $request
+        );
 
         return ApiResponse::success(null, 'Status keaktifan berhasil diperbarui.');
     }
 
-    public function importExcel(Request $request)
+    public function importExcel(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv'
+            'file' => 'required|mimes:xlsx,xls,csv|max:5120',
         ]);
 
         DB::beginTransaction();
 
         try {
-
             $rows = FacadesExcel::toArray([], $request->file('file'));
 
-            // Ambil sheet pertama
-            $data = $rows[0];
+            $data = array_slice($rows[0], 1);
 
-            // Asumsi baris pertama adalah header
-            unset($data[0]);
+            $maxRows = 1000;
+            if (count($data) > $maxRows) {
+                return ApiResponse::error(
+                    'Terlalu banyak data.',
+                    "Maksimal {$maxRows} baris per import. Data Anda memiliki " . count($data) . " baris.",
+                    422
+                );
+            }
 
             $inserted = 0;
             $skipped  = 0;
+            $errors   = [];
 
-            foreach ($data as $row) {
-                // mapping kolom sesuai urutan excel
-                $nik        = trim($row[0] ?? '');
-                $nama       = trim($row[1] ?? '');
-                $alamat     = trim($row[2] ?? '');
-                $hp         = trim($row[3] ?? '');
+            foreach ($data as $rowIndex => $row) {
+                $lineNum = $rowIndex + 2;
+
+                $nik    = trim((string) ($row[0] ?? ''));
+                $nama   = trim((string) ($row[1] ?? ''));
+                $alamat = trim((string) ($row[2] ?? ''));
+                $hp     = trim((string) ($row[3] ?? ''));
 
                 if (!$nik || !$nama) {
                     $skipped++;
+                    $errors[] = "Baris {$lineNum}: NIK dan Nama wajib diisi.";
                     continue;
                 }
 
-                // Cegah duplikat NIK
-                if (Warga::where('nik', $nik)->exists()) {
+                if (strlen($nik) > 32) {
                     $skipped++;
+                    $errors[] = "Baris {$lineNum}: NIK '{$nik}' melebihi 32 karakter.";
+                    continue;
+                }
+
+                if (Warga::withTrashed()->where('nik', $nik)->exists()) {
+                    $skipped++;
+                    $errors[] = "Baris {$lineNum}: NIK '{$nik}' sudah terdaftar, dilewati.";
                     continue;
                 }
 
                 Warga::create([
                     'nik'              => $nik,
                     'nama_warga'       => $nama,
-                    'alamat'           => $alamat,
-                    'no_hp'            => $hp,
+                    'alamat'           => $alamat ?: '-',
+                    'no_hp'            => $hp ?: null,
                     'id_user'          => null,
                     'status_keaktifan' => 'aktif',
                 ]);
@@ -297,27 +275,86 @@ class WargaController extends Controller
                 $inserted++;
             }
 
+            $this->writeLog(
+                'import',
+                "Import Excel warga. Berhasil: {$inserted}, dilewati: {$skipped}",
+                $request
+            );
+
             DB::commit();
 
-            ActivityLog::create([
-                'id_user' => Auth::id(),
-                'action' => 'import',
-                'description' => "Import data warga melalui Excel. Berhasil: {$inserted}, dilewati: {$skipped}",
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-            ]);
-
-            return ApiResponse::success(null, 'Import data berhasil dilakukan');
-
+            return ApiResponse::success(
+                [
+                    'inserted' => $inserted,
+                    'skipped'  => $skipped,
+                    'errors'   => $errors,
+                ],
+                "Import selesai. {$inserted} data berhasil ditambahkan, {$skipped} dilewati."
+            );
         } catch (\Throwable $e) {
             DB::rollBack();
-
-            return ApiResponse::error(
-                'Terjadi kesalahan.',
-                $e->getMessage(),
-                500
-            );
+            return ApiResponse::error('Terjadi kesalahan saat import.', $e->getMessage(), 500);
         }
     }
 
+    public function exportTemplate(): BinaryFileResponse
+    {
+        $headers = ['NIK', 'Nama Warga', 'Alamat', 'No HP'];
+
+        $contohData = [
+            ['3171234567890001', 'Budi Santoso', 'Jl. Merdeka No. 1', '081234567890'],
+            ['3171234567890002', 'Siti Aminah', 'Jl. Sudirman No. 5', '082345678901'],
+        ];
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        
+        foreach ($headers as $colIndex => $header) {
+            $col = Coordinate::stringFromColumnIndex($colIndex + 1);
+            $sheet->setCellValue("{$col}1", $header);
+            $sheet->getStyle("{$col}1")->getFont()->setBold(true);
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+        
+        foreach ($contohData as $rowIndex => $row) {
+            foreach ($row as $colIndex => $value) {
+                $col = Coordinate::stringFromColumnIndex($colIndex + 1);
+                $sheet->setCellValueExplicit(
+                    "{$col}" . ($rowIndex + 2),
+                    $value,
+                    DataType::TYPE_STRING
+                );
+            }
+        }
+
+        $filename = 'template_import_warga.xlsx';
+        $tempPath = storage_path("app/temp/{$filename}");
+
+        if (!file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($tempPath);
+
+        return response()->download($tempPath, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+    private function writeLog(string $action, string $description, Request $request): void
+    {
+        try {
+            ActivityLog::create([
+                'id_user'            => Auth::id(),
+                'nama_user_snapshot' => Auth::user()?->name,
+                'action'             => $action,
+                'description'        => $description,
+                'ip_address'         => $request->ip(),
+                'user_agent'         => $request->userAgent(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning("Gagal menulis activity log: {$e->getMessage()}");
+        }
+    }
 }

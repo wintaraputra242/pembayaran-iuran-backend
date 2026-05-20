@@ -4,30 +4,31 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Regu extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'regu';
 
-    protected $fillable = [
-        'nama_regu',
-        'status_keaktifan',
-        'tanggal_nonaktif',
-        'is_deleted',
-        'deleted_at',
-    ];
+    protected $fillable = ['nama_regu', 'status_keaktifan', 'id_user'];
 
-    // Relasi ke anggota regu
-    public function anggotaRegu()
+    public function ketuaRegu(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_user');
+    }
+
+    public function anggotaRegu(): HasMany
     {
         return $this->hasMany(AnggotaRegu::class, 'id_regu');
     }
 
-    // Relasi ke user
-    public function user()
+    public function anggotaAktif(): HasMany
     {
-        return $this->belongsTo(User::class, 'id');
+        return $this->hasMany(AnggotaRegu::class, 'id_regu')
+            ->where('status_keaktifan', 'aktif');
     }
 }

@@ -6,13 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
+use Illuminate\Support\Facades\Auth;
 
 class NotificationController extends Controller
 {
     public function index(Request $request)
     {
+        $userId = Auth::id();
+
         $query = Notification::query()
-            ->where('user_id', auth()->id());
+            ->where('user_id', $userId);
 
         if ($request->filled('type')) {
             $query->where('type', $request->type);
@@ -32,25 +35,29 @@ class NotificationController extends Controller
 
     public function unreadCount()
     {
-        $count = Notification::where('user_id', auth()->id())
+        $userId = Auth::id();
+
+        $count = Notification::where('user_id', $userId)
             ->where('is_read', false)
             ->count();
 
         return ApiResponse::success(
-            [
-                'unread_count' => $count
-            ],
+            ['unread_count' => $count],
             'Jumlah notifikasi belum dibaca.'
         );
     }
 
     public function markAsRead($id)
     {
-        $notification = Notification::findOrFail($id);
+        $userId = Auth::user()->id;
 
-        $notification->update([
-            'is_read' => true
-        ]);
+        $notification = Notification::where('user_id', $userId)->find($id);
+
+        if (!$notification) {
+            return ApiResponse::error('Notifikasi tidak ditemukan.', null, 404);
+        }
+
+        $notification->update(['is_read' => true]);
 
         return ApiResponse::success(
             $notification,
@@ -60,7 +67,10 @@ class NotificationController extends Controller
 
     public function markAllAsRead()
     {
-        Notification::where('is_read', false)
+        $userId = Auth::user()->id;
+
+        Notification::where('user_id', $userId)
+            ->where('is_read', false)
             ->update(['is_read' => true]);
 
         return ApiResponse::success(

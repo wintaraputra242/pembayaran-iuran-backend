@@ -3,35 +3,53 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-// use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory, SoftDeletes;
 
     protected $table = 'users';
 
-    protected $fillable = [
-        'name',
-        'username',
-        'role',
-        'password',
-        'is_active',
-    ];
+    protected $fillable = ['name', 'username', 'password', 'role', 'is_active'];
+    protected $hidden   = ['password'];
 
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    public function devices()
+    public function warga(): HasOne
     {
-        return $this->hasMany(UserDevice::class);
+        return $this->hasOne(Warga::class, 'id_user');
     }
 
-    public function regu()
+    public function regu(): HasMany
     {
-        return $this->hasOne(Regu::class, 'id_user');
+        return $this->hasMany(Regu::class, 'id_user');
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class, 'id_user');
+    }
+
+    public function devices(): HasMany
+    {
+        return $this->hasMany(UserDevice::class, 'user_id');
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class, 'user_id');
+    }
+
+    public function pembayaranDiproses(): HasMany
+    {
+        return $this->hasMany(Pembayaran::class, 'processed_by');
+    }
+
+    public function getAuthIdentifierName()
+    {
+        return 'username';
     }
 }

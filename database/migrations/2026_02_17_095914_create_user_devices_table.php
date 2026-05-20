@@ -10,19 +10,16 @@ return new class extends Migration
     {
         Schema::create('user_devices', function (Blueprint $table) {
             $table->id();
-
             $table->foreignId('user_id')
-                ->constrained('users')
-                ->cascadeOnDelete();
-
+                  ->constrained('users')
+                  ->cascadeOnDelete();
             $table->string('fcm_token', 255)->unique();
-
             $table->string('device_name')->nullable();
-            $table->string('platform')->nullable(); // android, ios, web
+            $table->string('platform')->nullable();
             $table->timestamp('last_used_at')->nullable();
-
             $table->timestamps();
         });
+
     }
 
     public function down(): void

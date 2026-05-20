@@ -7,72 +7,54 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ActivityLogController extends Controller
 {
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         $query = ActivityLog::with([
-            'user:id,name,role'
+            'user:id,name',
         ]);
 
-        // 🔥 Filter berdasarkan role
         if ($user->role === 'ketua_regu') {
             $query->where('id_user', $user->id);
         }
-        // admin tidak perlu filter (lihat semua)
 
-        // filter nama user (khusus admin)
         if ($request->filled('user') && $user->role === 'admin') {
-            $query->whereHas('user', function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->user . '%');
-            });
+            $query->where('nama_user_snapshot', 'like', '%' . $request->user . '%');
         }
 
-        // filter action
         if ($request->filled('action')) {
             $query->where('action', $request->action);
         }
 
-        // filter tanggal
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $start = Carbon::parse($request->start_date)->startOfDay();
-            $end = Carbon::parse($request->end_date)->endOfDay();
+            $end   = Carbon::parse($request->end_date)->endOfDay();
 
             $query->whereBetween('created_at', [$start, $end]);
         }
 
-        $perPage = $request->get('per_page', 10);
-
         $data = $query
             ->orderByDesc('created_at')
-            ->paginate($perPage);
+            ->paginate($request->get('per_page', 10));
 
-        return ApiResponse::success(
-            $data,
-            'Data aktivitas berhasil diambil.'
-        );
+        return ApiResponse::success($data, 'Data aktivitas berhasil diambil.');
     }
 
     public function show($id)
     {
         $log = ActivityLog::with([
-            'user:id,name,role'
+            'user:id,name',
         ])->find($id);
 
         if (!$log) {
-            return ApiResponse::error(
-                'Data tidak ditemukan.',
-                'Activity log tidak ditemukan.',
-                404
-            );
+            return ApiResponse::error('Data tidak ditemukan.', 'Activity log tidak ditemukan.', 404);
         }
 
-        return ApiResponse::success(
-            $log,
-            'Detail aktivitas berhasil diambil.'
-        );
+        return ApiResponse::success($log, 'Detail aktivitas berhasil diambil.');
     }
 }

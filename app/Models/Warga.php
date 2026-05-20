@@ -4,15 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Warga extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'warga';
+
     protected $primaryKey = 'nik';
-    public $incrementing = false; // karena bukan auto-increment
-    protected $keyType = 'string';
+    public    $incrementing = false;
+    protected $keyType      = 'string';
 
     protected $fillable = [
         'nik',
@@ -21,38 +25,25 @@ class Warga extends Model
         'alamat',
         'no_hp',
         'status_keaktifan',
-        'is_deleted',
-        'deleted_at',
     ];
 
-    // Relasi ke User (1 warga punya 1 user)
-    public function users()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_user');
     }
 
-    public function pembayaran()
+    public function anggotaRegu(): HasMany
+    {
+        return $this->hasMany(AnggotaRegu::class, 'nik', 'nik');
+    }
+
+    public function pembayaran(): HasMany
     {
         return $this->hasMany(Pembayaran::class, 'nik', 'nik');
     }
 
-    public function anggotaRegu()
+    public function iuranSebagaiPenanggungJawab(): HasMany
     {
-        return $this->hasOne(AnggotaRegu::class, 'nik', 'nik')
-            ->whereNull('deleted_at')
-            ->where('status_keaktifan', 1);
+        return $this->hasMany(InformasiIuran::class, 'nik_penanggung_jawab', 'nik');
     }
-
-
-    // // Relasi ke anggota_regu
-    // public function anggotaRegu()
-    // {
-    //     return $this->hasMany(AnggotaRegu::class, 'nik', 'nik');
-    // }
-
-    // // Relasi ke pembayaran
-    // public function pembayaran()
-    // {
-    //     return $this->hasMany(Pembayaran::class, 'nik', 'nik');
-    // }
 }

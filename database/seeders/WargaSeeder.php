@@ -2,41 +2,264 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class WargaSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        // DB::table('warga')->truncate();
+        // id_user 2-7  = ketua regu 1-6
+        // id_user 8-10 = warga 1-3
+        $warga = [
 
-        $wargas = [
+            // ── Ketua Regu (warga yang menjadi ketua) ──────────────────
             [
-                'nik' => '3201010100010001',
-                'nama_warga' => 'Budi Santoso',
-                'alamat' => 'Jl. Melati No. 5',
-                'no_hp' => '081234567890',
+                'nik'              => '3578010101800001',
+                'id_user'          => 2,
+                'nama_warga'       => 'Budi Santoso',
+                'alamat'           => 'Jl. Mawar No. 1, Surabaya',
+                'no_hp'            => '081234567801',
                 'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
             ],
             [
-                'nik' => '3201010100010002',
-                'nama_warga' => 'Siti Aminah',
-                'alamat' => 'Jl. Mawar No. 10',
-                'no_hp' => '081234567891',
+                'nik'              => '3578010101800002',
+                'id_user'          => 3,
+                'nama_warga'       => 'Slamet Raharjo',
+                'alamat'           => 'Jl. Melati No. 2, Surabaya',
+                'no_hp'            => '081234567802',
                 'status_keaktifan' => 'aktif',
-            ]
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101800003',
+                'id_user'          => 4,
+                'nama_warga'       => 'Hendra Gunawan',
+                'alamat'           => 'Jl. Kenanga No. 3, Surabaya',
+                'no_hp'            => '081234567803',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101800004',
+                'id_user'          => 5,
+                'nama_warga'       => 'Agus Prasetyo',
+                'alamat'           => 'Jl. Dahlia No. 4, Surabaya',
+                'no_hp'            => '081234567804',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101800005',
+                'id_user'          => 6,
+                'nama_warga'       => 'Doni Firmansyah',
+                'alamat'           => 'Jl. Anggrek No. 5, Surabaya',
+                'no_hp'            => '081234567805',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101800006',
+                'id_user'          => 7,
+                'nama_warga'       => 'Rizky Hidayat',
+                'alamat'           => 'Jl. Flamboyan No. 6, Surabaya',
+                'no_hp'            => '081234567806',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+
+            // ── Warga biasa (punya akun) ───────────────────────────────
+            [
+                'nik'              => '3578010101900001',
+                'id_user'          => 8,
+                'nama_warga'       => 'Dewi Rahayu',
+                'alamat'           => 'Jl. Cempaka No. 7, Surabaya',
+                'no_hp'            => '081234567807',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900002',
+                'id_user'          => 9,
+                'nama_warga'       => 'Siti Aminah',
+                'alamat'           => 'Jl. Bougenville No. 8, Surabaya',
+                'no_hp'            => '081234567808',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900003',
+                'id_user'          => 10,
+                'nama_warga'       => 'Joko Susilo',
+                'alamat'           => 'Jl. Teratai No. 9, Surabaya',
+                'no_hp'            => '081234567809',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+
+            // ── Warga biasa (tanpa akun) ───────────────────────────────
+            [
+                'nik'              => '3578010101900004',
+                'id_user'          => null,
+                'nama_warga'       => 'Wahyu Nugroho',
+                'alamat'           => 'Jl. Nusa Indah No. 10, Surabaya',
+                'no_hp'            => '081234567810',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900005',
+                'id_user'          => null,
+                'nama_warga'       => 'Eko Widodo',
+                'alamat'           => 'Jl. Pahlawan No. 11, Surabaya',
+                'no_hp'            => '081234567811',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900006',
+                'id_user'          => null,
+                'nama_warga'       => 'Bambang Sutrisno',
+                'alamat'           => 'Jl. Merdeka No. 12, Surabaya',
+                'no_hp'            => '081234567812',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900007',
+                'id_user'          => null,
+                'nama_warga'       => 'Yuli Astuti',
+                'alamat'           => 'Jl. Diponegoro No. 13, Surabaya',
+                'no_hp'            => '081234567813',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900008',
+                'id_user'          => null,
+                'nama_warga'       => 'Ratna Sari',
+                'alamat'           => 'Jl. Sudirman No. 14, Surabaya',
+                'no_hp'            => '081234567814',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900009',
+                'id_user'          => null,
+                'nama_warga'       => 'Fajar Setiawan',
+                'alamat'           => 'Jl. Ahmad Yani No. 15, Surabaya',
+                'no_hp'            => '081234567815',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900010',
+                'id_user'          => null,
+                'nama_warga'       => 'Indra Kusuma',
+                'alamat'           => 'Jl. Gatot Subroto No. 16, Surabaya',
+                'no_hp'            => '081234567816',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900011',
+                'id_user'          => null,
+                'nama_warga'       => 'Maya Puspita',
+                'alamat'           => 'Jl. Imam Bonjol No. 17, Surabaya',
+                'no_hp'            => '081234567817',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900012',
+                'id_user'          => null,
+                'nama_warga'       => 'Tono Hartono',
+                'alamat'           => 'Jl. Veteran No. 18, Surabaya',
+                'no_hp'            => '081234567818',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900013',
+                'id_user'          => null,
+                'nama_warga'       => 'Rina Marlina',
+                'alamat'           => 'Jl. Kartini No. 19, Surabaya',
+                'no_hp'            => '081234567819',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900014',
+                'id_user'          => null,
+                'nama_warga'       => 'Surya Admaja',
+                'alamat'           => 'Jl. Hayam Wuruk No. 20, Surabaya',
+                'no_hp'            => '081234567820',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900015',
+                'id_user'          => null,
+                'nama_warga'       => 'Putri Handayani',
+                'alamat'           => 'Jl. Raya Darmo No. 21, Surabaya',
+                'no_hp'            => '081234567821',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900016',
+                'id_user'          => null,
+                'nama_warga'       => 'Guntur Wibowo',
+                'alamat'           => 'Jl. Raya Gubeng No. 22, Surabaya',
+                'no_hp'            => '081234567822',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900017',
+                'id_user'          => null,
+                'nama_warga'       => 'Lestari Wulandari',
+                'alamat'           => 'Jl. Kertajaya No. 23, Surabaya',
+                'no_hp'            => '081234567823',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
+            [
+                'nik'              => '3578010101900018',
+                'id_user'          => null,
+                'nama_warga'       => 'Andri Kurniawan',
+                'alamat'           => 'Jl. Dharmawangsa No. 24, Surabaya',
+                'no_hp'            => '081234567824',
+                'status_keaktifan' => 'aktif',
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ],
         ];
 
-        foreach ($wargas as $w) {
-            $w['created_at'] = now();
-            $w['updated_at'] = now();
-            DB::table('warga')->insert($w);
-        }
+        DB::table('warga')->insert($warga);
     }
 }

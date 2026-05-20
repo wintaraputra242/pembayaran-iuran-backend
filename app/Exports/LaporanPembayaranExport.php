@@ -20,7 +20,7 @@ class LaporanPembayaranExport implements FromCollection, WithHeadings, WithColum
     public function collection(): Collection
     {
         $query = Pembayaran::query()
-            ->with(['warga.anggotaRegu.regu', 'informasiIuran', 'processedBy']);
+            ->with(['warga.anggotaRegu.regu', 'informasiIuran', 'diprosesoleh']);
 
         if (!empty($this->filters['start_date']) && !empty($this->filters['end_date'])) {
             $query->whereBetween('tanggal_bayar', [
@@ -73,10 +73,18 @@ class LaporanPembayaranExport implements FromCollection, WithHeadings, WithColum
                     $bulanList = is_array($item->bulan) ? $item->bulan : json_decode($item->bulan, true);
 
                     $bulanMap = [
-                        1 => 'Jan', 2 => 'Feb', 3 => 'Mar',
-                        4 => 'Apr', 5 => 'Mei', 6 => 'Jun',
-                        7 => 'Jul', 8 => 'Agu', 9 => 'Sep',
-                        10 => 'Okt', 11 => 'Nov', 12 => 'Des'
+                        1 => 'Jan',
+                        2 => 'Feb',
+                        3 => 'Mar',
+                        4 => 'Apr',
+                        5 => 'Mei',
+                        6 => 'Jun',
+                        7 => 'Jul',
+                        8 => 'Agu',
+                        9 => 'Sep',
+                        10 => 'Okt',
+                        11 => 'Nov',
+                        12 => 'Des'
                     ];
 
                     $bulan = collect($bulanList)
@@ -89,12 +97,12 @@ class LaporanPembayaranExport implements FromCollection, WithHeadings, WithColum
                     $item->transaction_id,
                     $item->tanggal_bayar,
                     $item->nama_warga_snapshot ?? optional($item->warga)->nama_warga ?? '-',
-                    $item->warga->anggotaRegu->regu->nama_regu ?? '-',
+                    $item->warga?->anggotaRegu?->first()?->regu?->nama_regu ?? '-',
                     $item->judul_iuran_snapshot ?? optional($item->informasiIuran)->judul_iuran ?? '-',
                     $bulan,
                     ucfirst($item->metode_bayar),
                     $item->total_bayar,
-                    $item->processedBy->name ?? '-',
+                    $item->diprosesoleh->name ?? '-',
                     $statusText[$item->status_bayar] ?? $item->status_bayar,
                 ];
             });
