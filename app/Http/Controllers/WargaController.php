@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\ApiResponse;
 use App\Models\ActivityLog;
+use App\Models\User;
 use App\Models\Warga;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -67,14 +68,13 @@ class WargaController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'nik'        => 'required|string|max:32|unique:warga,nik',
+            'nik' => 'required|digits:16|unique:warga,nik',
             'nama_warga' => 'required|string|max:100',
             'alamat'     => 'required|string',
             'no_hp'      => 'required|string|max:20',
         ], [
             'nik.required'        => 'NIK wajib diisi.',
-            'nik.string'          => 'NIK harus berupa teks.',
-            'nik.max'             => 'NIK maksimal 32 karakter.',
+            'nik.digits'   => 'NIK harus tepat 16 digit angka.',
             'nik.unique'          => 'NIK sudah terdaftar.',
             'nama_warga.required' => 'Nama warga wajib diisi.',
             'nama_warga.string'   => 'Nama warga harus berupa teks.',
@@ -93,9 +93,17 @@ class WargaController extends Controller
         DB::beginTransaction();
 
         try {
+            $user = User::create([
+                'name'      => $validator->validated()['nama_warga'],
+                'username'  => $request->nik,
+                'password'  => null,
+                'role'      => 'warga',
+                'is_active' => true,
+            ]);
+
             Warga::create([
                 ...$validator->validated(),
-                'id_user'          => null,
+                'id_user'          => $user->id,
                 'status_keaktifan' => 'aktif',
             ]);
 
@@ -117,8 +125,6 @@ class WargaController extends Controller
         if (!$warga) {
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
-
-        dd($request);
 
         $validator = Validator::make($request->all(), [
             'nama_warga' => 'sometimes|required|string|max:100',
@@ -150,28 +156,35 @@ class WargaController extends Controller
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
+        DB::beginTransaction();
+
         try {
             $warga->status_keaktifan = 'tidak_aktif';
             $warga->save();
-
             $warga->delete();
+
+            if ($warga->id_user) {
+                User::find($warga->id_user)?->delete();
+            }
 
             $this->writeLog('delete', "Soft delete warga NIK {$warga->nik} ({$warga->nama_warga})", $request);
 
-            return ApiResponse::success(
-                null,
-                'Data warga berhasil dinonaktifkan.'
-            );
+            DB::commit();
+
+            return ApiResponse::success(null, 'Data warga berhasil dinonaktifkan.');
         } catch (ValidationException $e) {
+            DB::rollBack();
             return ApiResponse::error(
                 'Tidak dapat menghapus warga.',
                 collect($e->errors())->flatten()->first(),
                 422
             );
         } catch (\Throwable $e) {
+            DB::rollBack();
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
     }
+
 
     public function updateStatus(Request $request, string $nik): JsonResponse
     {
@@ -203,7 +216,7 @@ class WargaController extends Controller
         $warga->save();
 
         $this->writeLog(
-            'update_status',
+            'update',
             "Mengubah status warga NIK {$warga->nik} ({$warga->nama_warga}) menjadi {$statusBaru}",
             $request
         );
@@ -251,9 +264,9 @@ class WargaController extends Controller
                     continue;
                 }
 
-                if (strlen($nik) > 32) {
+                if (strlen($nik) !== 16 || !ctype_digit($nik)) {
                     $skipped++;
-                    $errors[] = "Baris {$lineNum}: NIK '{$nik}' melebihi 32 karakter.";
+                    $errors[] = "Baris {$lineNum}: NIK '{$nik}' harus tepat 16 digit angka.";
                     continue;
                 }
 
@@ -263,17 +276,27 @@ class WargaController extends Controller
                     continue;
                 }
 
+                // Buat user terlebih dahulu
+                $user = User::create([
+                    'name'      => $nama,
+                    'username'  => $nik,
+                    'password'  => null,
+                    'role'      => 'warga',
+                    'is_active' => true,
+                ]);
+
                 Warga::create([
                     'nik'              => $nik,
                     'nama_warga'       => $nama,
                     'alamat'           => $alamat ?: '-',
                     'no_hp'            => $hp ?: null,
-                    'id_user'          => null,
+                    'id_user'          => $user->id,
                     'status_keaktifan' => 'aktif',
                 ]);
 
                 $inserted++;
             }
+
 
             $this->writeLog(
                 'import',
@@ -308,14 +331,14 @@ class WargaController extends Controller
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        
+
         foreach ($headers as $colIndex => $header) {
             $col = Coordinate::stringFromColumnIndex($colIndex + 1);
             $sheet->setCellValue("{$col}1", $header);
             $sheet->getStyle("{$col}1")->getFont()->setBold(true);
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
-        
+
         foreach ($contohData as $rowIndex => $row) {
             foreach ($row as $colIndex => $value) {
                 $col = Coordinate::stringFromColumnIndex($colIndex + 1);

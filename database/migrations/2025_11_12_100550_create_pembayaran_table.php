@@ -42,6 +42,7 @@ return new class extends Migration
             $table->string('midtrans_payment_type')->nullable();
             $table->json('midtrans_raw_response')->nullable();
             $table->string('bukti_pembayaran')->nullable();
+            $table->text('note')->nullable();
             $table->timestamps();
             $table->softDeletes();
             $table->foreign('nik')

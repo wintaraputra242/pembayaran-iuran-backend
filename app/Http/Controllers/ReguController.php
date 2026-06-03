@@ -268,7 +268,7 @@ class ReguController extends Controller
             }
 
             $this->writeLog(
-                'update_status',
+                'update',
                 "Mengubah status regu \"{$regu->nama_regu}\" menjadi {$statusBaru}.",
                 $request
             );

@@ -114,7 +114,7 @@ class UserController extends Controller
         $this->writeLog(
             Auth::id(),
             Auth::user()?->name,
-            'update_user',
+            'update',
             "Update data user ID {$user->id} ({$user->username})",
             $request
         );
@@ -144,7 +144,7 @@ class UserController extends Controller
         $this->writeLog(
             Auth::id(),
             Auth::user()?->name,
-            'delete_user',
+            'delete',
             "Soft delete user ID {$user->id} ({$user->username})",
             $request
         );
@@ -176,7 +176,7 @@ class UserController extends Controller
         $this->writeLog(
             Auth::id(),
             Auth::user()?->name,
-            'toggle_active_user',
+            'update',
             "User ID {$user->id} ({$user->username}) {$status}",
             $request
         );
@@ -230,7 +230,7 @@ class UserController extends Controller
         $this->writeLog(
             Auth::id(),
             Auth::user()?->name,
-            'download_credential_pdf',
+            'download',
             'Mengunduh PDF kredensial akun regu',
             $request
         );

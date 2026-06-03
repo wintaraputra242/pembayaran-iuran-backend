@@ -20,7 +20,7 @@ class DashboardController extends Controller
         $totalWarga = Warga::count();
 
         $totalPembayaranHariIni = Pembayaran::whereDate('tanggal_bayar', now())
-            ->where('status_bayar', 'paid')
+            ->whereIn('status_bayar', ['paid', 'manual'])
             ->sum('total_bayar');
 
         switch ($type) {

@@ -33,6 +33,7 @@ class Pembayaran extends Model
         'midtrans_payment_type',
         'midtrans_raw_response',
         'bukti_pembayaran',
+        'note'
     ];
 
     protected $casts = [

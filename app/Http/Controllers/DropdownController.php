@@ -11,6 +11,7 @@ use App\Models\Warga;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DropdownController extends Controller
 {
@@ -66,25 +67,29 @@ class DropdownController extends Controller
             'id_informasi_iuran.exists'   => 'Informasi iuran yang dipilih tidak valid atau tidak ditemukan.',
         ]);
 
-        $user = Auth::user();
+        $user  = Auth::user();
         $iuran = InformasiIuran::findOrFail($request->id_informasi_iuran);
 
-        $reguKetua = null;
+        $filterReguId = $request->filled('id_regu') ? $request->id_regu : null;
+        $reguKetua    = null;
 
         if ($user->role === 'ketua_regu') {
-            $reguKetua = AnggotaRegu::where('nik', $user->warga->nik ?? null)
-                ->where('is_leader', 1)
-                ->whereNull('deleted_at')
-                ->value('id_regu');
-        }
+            $reguKetua = $user->regu()->whereNull('deleted_at')->value('id');
 
-        $filterReguId = $request->filled('id_regu') ? $request->id_regu : null;
+            if (!$reguKetua) {
+                return ApiResponse::success([], 'Data warga berhasil diambil.');
+            }
+        }
 
         $warga = Warga::with([
             'anggotaRegu.regu',
-            'pembayaran' => function ($q) use ($request) {
+            'pembayaran' => function ($q) use ($request, $iuran) {
                 $q->where('id_informasi_iuran', $request->id_informasi_iuran)
-                    ->where('status_bayar', 'paid');
+                    ->whereIn('status_bayar', ['paid', 'manual']);
+
+                if ($iuran->jenis_iuran === 'bulanan') {
+                    $q->whereNotNull('bulan');
+                }
             },
         ])
             ->select('nik', 'nama_warga')
@@ -95,7 +100,7 @@ class DropdownController extends Controller
                         ->where('status_keaktifan', 'aktif');
                 });
             })
-            ->when($filterReguId, function ($query) use ($filterReguId) {
+            ->when(!$reguKetua && $filterReguId, function ($query) use ($filterReguId) {
                 $query->whereHas('anggotaRegu', function ($q) use ($filterReguId) {
                     $q->where('id_regu', $filterReguId)
                         ->whereNull('deleted_at')
@@ -105,35 +110,54 @@ class DropdownController extends Controller
             ->get()
             ->filter(function ($warga) use ($iuran) {
                 if ($iuran->jenis_iuran === 'kematian') {
-                    return $warga->pembayaran->count() === 0;
+                    return $warga->pembayaran->isEmpty();
                 }
 
                 if ($iuran->jenis_iuran === 'bulanan') {
-                    $bulanSudahDibayar = [];
+                    $bulanSudahDibayar = $warga->pembayaran
+                        ->flatMap(function ($bayar) {
+                            $bulan = $bayar->bulan;
+                            if (is_string($bulan)) {
+                                $bulan = json_decode($bulan, true) ?? [];
+                            }
+                            return is_array($bulan) ? $bulan : [];
+                        })
+                        ->map(fn($b) => (int) $b)
+                        ->unique()
+                        ->values();
 
-                    foreach ($warga->pembayaran as $bayar) {
-                        if (is_array($bayar->bulan)) {
-                            $bulanSudahDibayar = array_merge($bulanSudahDibayar, $bayar->bulan);
-                        }
-                    }
-
-                    return count(array_unique($bulanSudahDibayar)) < 12;
+                    return $bulanSudahDibayar->count() < 12;
                 }
 
                 return true;
             })
             ->sortBy('nama_warga')
-            ->map(function ($item) {
-                $anggotaAktif = $item->anggotaRegu
+            ->map(function ($warga) {
+                $anggotaAktif = $warga->anggotaRegu
                     ->whereNull('deleted_at')
                     ->where('status_keaktifan', 'aktif')
                     ->first();
 
+                $bulanSudahDibayar = $warga->pembayaran
+                    ->flatMap(function ($bayar) {
+                        $bulan = $bayar->bulan;
+                        if (is_string($bulan)) {
+                            $bulan = json_decode($bulan, true) ?? [];
+                        }
+                        return is_array($bulan) ? $bulan : [];
+                    })
+                    ->map(fn($b) => (int) $b)
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->toArray();
+
                 return [
-                    'nik'        => $item->nik,
-                    'nama_warga' => $item->nama_warga,
-                    'regu'       => $anggotaAktif->regu->nama_regu ?? null,
-                    'regu_id'    => $anggotaAktif->regu->id ?? null,
+                    'nik'                 => $warga->nik,
+                    'nama_warga'          => $warga->nama_warga,
+                    'regu'                => $anggotaAktif->regu->nama_regu ?? null,
+                    'regu_id'             => $anggotaAktif->regu->id ?? null,
+                    'bulan_sudah_dibayar' => $bulanSudahDibayar,
                 ];
             })
             ->values();

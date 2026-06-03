@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('fcm_token', 255)->unique();
             $table->string('device_name')->nullable();
             $table->string('platform')->nullable();
+            $table->string('app_type')->default('client');
             $table->timestamp('last_used_at')->nullable();
             $table->timestamps();
         });

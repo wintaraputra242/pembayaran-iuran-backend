@@ -86,13 +86,13 @@ class PembayaranController extends Controller
         return ApiResponse::success($data, 'Data pembayaran berhasil diambil.');
     }
 
-    public function show(int $id): JsonResponse
+    public function show(int $nik): JsonResponse
     {
         $pembayaran = Pembayaran::with([
             'warga',
             'informasiIuran',
             'diprosesoleh:id,name,role',
-        ])->find($id);
+        ])->where('nik', $nik)->first();
 
         if (!$pembayaran) {
             return ApiResponse::error('Data pembayaran tidak ditemukan.', null, 404);
@@ -488,9 +488,9 @@ class PembayaranController extends Controller
             ->values()
             ->toArray();
 
-        if (empty($tokens)) {
-            return ApiResponse::success(null, 'Tidak ada warga yang belum bayar atau tidak ada perangkat terdaftar.');
-        }
+        // if (empty($tokens)) {
+        //     return ApiResponse::error(null, 'Tidak ada perangkat aktif yang terdaftar.');
+        // }
 
         $firebase = new \App\Services\FirebaseService();
         $title    = 'Pengingat Pembayaran Iuran';
@@ -506,17 +506,17 @@ class PembayaranController extends Controller
             NotificationModel::create([
                 'title'   => $title,
                 'message' => $message,
-                'type'    => 'reminder',
+                'type'    => 'pengingat',
                 'user_id' => $warga->user->id,
                 'data'    => ['id_informasi_iuran' => $iuran->id],
             ]);
         }
 
-        $this->writeLog(
-            'send_notification',
-            "Mengirim notifikasi pengingat iuran \"{$iuran->judul_iuran}\" ke {$wargaList->count()} warga.",
-            $request
-        );
+        // $this->writeLog(
+        //     'send_notification',
+        //     "Mengirim notifikasi pengingat iuran \"{$iuran->judul_iuran}\" ke {$wargaList->count()} warga.",
+        //     $request
+        // );
 
         return ApiResponse::success(null, 'Notifikasi berhasil dikirim ke warga yang belum bayar.');
     }
@@ -528,6 +528,8 @@ class PembayaranController extends Controller
             'id_informasi_iuran' => 'required|exists:informasi_iuran,id',
             'month'              => 'nullable|integer|min:1|max:12',
         ], [
+            'nik.required'                => 'NIK wajib diisi.',
+            'nik.exists'                  => 'NIK yang dipilih tidak valid atau tidak ditemukan.',
             'id_informasi_iuran.required' => 'Informasi iuran wajib dipilih.',
             'id_informasi_iuran.exists'   => 'Informasi iuran yang dipilih tidak valid atau tidak ditemukan.',
             'month.integer'               => 'Bulan harus berupa angka.',
@@ -549,20 +551,51 @@ class PembayaranController extends Controller
             return ApiResponse::error('Warga tidak memiliki perangkat aktif.', null, 404);
         }
 
-        (new \App\Services\FirebaseService())->sendBulk($tokens, $data['title'], $data['message']);
+        $iuran = InformasiIuran::find($data['id_informasi_iuran']);
+
+        $monthNames = [
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember',
+        ];
+
+        if ($iuran->jenis_iuran === 'bulanan') {
+            $bulanLabel = isset($data['month']) ? $monthNames[$data['month']] : 'bulan ini';
+
+            $title   = 'Pengingat Iuran Bulanan';
+            $message = "Yth. {$warga->nama_warga}, Anda belum melakukan pembayaran iuran bulanan untuk bulan {$bulanLabel}. Segera lakukan pembayaran. Terima kasih.";
+        } else {
+            $title   = 'Pengingat Iuran Kematian';
+            $message = "Yth. {$warga->nama_warga}, Anda belum melakukan pembayaran iuran kematian untuk {$iuran->judul_iuran}. Segera lakukan pembayaran. Terima kasih.";
+        }
+
+        try {
+            (new \App\Services\FirebaseService())->sendBulk($tokens, $title, $message);
+        } catch (\Throwable $e) {
+            Log::warning('Gagal kirim FCM: ' . $e->getMessage());
+        }
 
         NotificationModel::create([
-            'title'   => $data['title'],
-            'message' => $data['message'],
-            'type'    => 'manual',
+            'title'   => $title,
+            'message' => $message,
+            'type'    => 'pengingat',
             'user_id' => $warga->user->id,
         ]);
 
-        $this->writeLog(
-            'send_notification',
-            "Mengirim notifikasi manual ke warga {$warga->nama_warga} (NIK: {$warga->nik}).",
-            $request
-        );
+        // $this->writeLog(
+        //     'send_notification',
+        //     "Mengirim notifikasi manual ke warga {$warga->nama_warga} (NIK: {$warga->nik}).",
+        //     $request
+        // );
 
         return ApiResponse::success(null, 'Notifikasi berhasil dikirim ke warga.');
     }
@@ -611,15 +644,15 @@ class PembayaranController extends Controller
         NotificationModel::create([
             'title'   => $title,
             'message' => $message,
-            'type'    => 'reminder',
+            'type'    => 'pengingat',
             'user_id' => $warga->user->id,
         ]);
 
-        $this->writeLog(
-            'send_notification',
-            "Mengirim ringkasan {$unpaidList->count()} tunggakan iuran ke warga {$warga->nama_warga}.",
-            $request
-        );
+        // $this->writeLog(
+        //     'send_notification',
+        //     "Mengirim ringkasan {$unpaidList->count()} tunggakan iuran ke warga {$warga->nama_warga}.",
+        //     $request
+        // );
 
         return ApiResponse::success(null, 'Notifikasi ringkasan berhasil dikirim.');
     }
@@ -670,17 +703,17 @@ class PembayaranController extends Controller
             NotificationModel::create([
                 'title'   => $title,
                 'message' => $message,
-                'type'    => 'reminder',
+                'type'    => 'pengingat',
                 'user_id' => $warga->user->id,
                 'data'    => ['id_informasi_iuran' => $item->id],
             ]);
         }
 
-        $this->writeLog(
-            'send_notification',
-            "Mengirim {$unpaidList->count()} notifikasi tunggakan iuran satu per satu ke warga {$warga->nama_warga}.",
-            $request
-        );
+        // $this->writeLog(
+        //     'send_notification',
+        //     "Mengirim {$unpaidList->count()} notifikasi tunggakan iuran satu per satu ke warga {$warga->nama_warga}.",
+        //     $request
+        // );
 
         return ApiResponse::success(null, 'Notifikasi iuran dikirim satu per satu.');
     }
@@ -744,6 +777,87 @@ class PembayaranController extends Controller
                 'error'   => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function getPembayaranByRegu(Request $request)
+    {
+        $request->validate([
+            'id_informasi_iuran' => 'nullable|exists:informasi_iuran,id',
+            'id_regu'            => 'nullable|exists:regu,id',
+            'status_bayar'       => 'nullable|in:paid,pending,failed',
+            'nama_warga'         => 'nullable|string', // ← tambah ini
+        ]);
+
+        $user     = Auth::user();
+        $perPage  = $request->input('per_page', 10);
+        $reguId   = null;
+
+        if ($user->role === 'ketua_regu') {
+            $reguId = $user->regu()->whereNull('deleted_at')->value('id');
+
+            if (!$reguId) {
+                return ApiResponse::success([], 'Data pembayaran berhasil diambil.');
+            }
+        } elseif ($user->role === 'admin') {
+            $reguId = $request->filled('id_regu') ? $request->id_regu : null;
+        }
+
+        $query = Pembayaran::with([
+            'warga.anggotaRegu.regu',
+            'informasiIuran',
+            'diprosesoleh',
+        ])
+            ->whereNull('deleted_at')
+            ->when($reguId, function ($q) use ($reguId) {
+                $q->whereHas('warga.anggotaRegu', function ($q) use ($reguId) {
+                    $q->where('id_regu', $reguId)
+                        ->whereNull('deleted_at')
+                        ->where('status_keaktifan', 'aktif');
+                });
+            })
+            ->when($request->filled('id_informasi_iuran'), function ($q) use ($request) {
+                $q->where('id_informasi_iuran', $request->id_informasi_iuran);
+            })
+            ->when($request->filled('status_bayar'), function ($q) use ($request) {
+                $q->where('status_bayar', $request->status_bayar);
+            })
+            ->when($request->filled('nama_warga'), function ($q) use ($request) {
+                $q->whereHas('warga', function ($q) use ($request) {
+                    $q->where('nama_warga', 'like', '%' . $request->nama_warga . '%');
+                });
+            })
+            ->orderByDesc('tanggal_bayar');
+
+        $data = $query->paginate($perPage)->through(function ($item) {
+            $anggotaAktif = $item->warga?->anggotaRegu
+                ->whereNull('deleted_at')
+                ->where('status_keaktifan', 'aktif')
+                ->first();
+
+            return [
+                'id'                     => $item->id,
+                'transaction_id'         => $item->transaction_id,
+                'nik'                    => $item->nik,
+                'nama_warga'             => $item->nama_warga_snapshot ?? $item->warga?->nama_warga,
+                'regu'                   => $anggotaAktif?->regu?->nama_regu,
+                'regu_id'                => $anggotaAktif?->regu?->id,
+                'informasi_iuran'        => $item->informasiIuran ? [
+                    'id'          => $item->informasiIuran->id,
+                    'nama'        => $item->informasiIuran->judul_iuran,
+                    'jenis_iuran' => $item->informasiIuran->jenis_iuran,
+                ] : null,
+                'bulan'                  => $item->bulan,
+                'jumlah_iuran_snapshot'  => $item->jumlah_iuran_snapshot,
+                'total_bayar'            => $item->total_bayar,
+                'tanggal_bayar'          => $item->tanggal_bayar?->format('Y-m-d'),
+                'metode_bayar'           => $item->metode_bayar,
+                'status_bayar'           => $item->status_bayar,
+                'processed_by'           => $item->diprosesoleh?->name,
+                'bukti_pembayaran'       => $item->bukti_pembayaran,
+            ];
+        });
+
+        return ApiResponse::success($data, 'Data pembayaran berhasil diambil.');
     }
 
     private function writeLog(string $action, string $description, Request $request): void

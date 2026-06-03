@@ -12,7 +12,7 @@ class UserDevice extends Model
 
     protected $table    = 'user_devices';
 
-    protected $fillable = ['user_id', 'fcm_token', 'device_name', 'platform', 'last_used_at'];
+    protected $fillable = ['user_id', 'fcm_token', 'device_name', 'platform', 'app_type', 'last_used_at'];
 
     public function user(): BelongsTo
     {
