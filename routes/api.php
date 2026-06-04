@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\QrSettingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\WargaController;
 use App\Http\Controllers\ReguController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Client\AuthController as ClientAuthController;
 use App\Http\Controllers\Client\InformasiIuranController as ClientInformasiIuranController;
 use App\Http\Controllers\Client\NotificationController as ClientNotificationController;
 use App\Http\Controllers\Client\PembayaranController as ClientPembayaranController;
+use App\Http\Controllers\Client\QrSettingController as ClientQrSettingController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DropdownController;
@@ -124,19 +126,30 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Pembayaran
     Route::prefix('pembayaran')->controller(PembayaranController::class)->group(function () {
+        Route::get('/',                     'index');
+        Route::post('/',                    'store');
+        Route::get('/unpaid',               'wargaUnpaidPayment');
+        Route::get('/unpaid-by-leader',     'getUnpaidWargaByLeader');
+        Route::get('/history-paid',         'historyAlreadyPaid');
+        Route::get('/history-unpaid',       'historyNotYetPaid');
+        Route::get('/paid-month',           'getPaidMonth');
+        Route::post('/notify-unpaid',       'sendUnpaidResidentsNotification');
+        Route::post('/notify-resident',     'sendResidentNotification');
+        Route::post('/notify-all-unpaid',   'sendAllUnpaidToResident');
+        Route::post('/notify-one-by-one',   'sendUnpaidOneByOneToResident');
+        Route::get('/by-regu',              'getPembayaranByRegu');
+        Route::get('/{nik}',                'show');
+        Route::post('/{id}/approve',        'approve');
+        Route::post('/{id}/reject',         'reject');
+    });
+
+    Route::prefix('qris')->controller(QrSettingController::class)->group(function () {
         Route::get('/',                         'index');
-        Route::post('/',                        'store');
-        Route::get('/unpaid',                   'wargaUnpaidPayment');
-        Route::get('/unpaid-by-leader',         'getUnpaidWargaByLeader');
-        Route::get('/history-paid',             'historyAlreadyPaid');
-        Route::get('/history-unpaid',           'historyNotYetPaid');
-        Route::get('/paid-month',               'getPaidMonth');
-        Route::post('/notify-unpaid',           'sendUnpaidResidentsNotification');
-        Route::post('/notify-resident',         'sendResidentNotification');
-        Route::post('/notify-all-unpaid',       'sendAllUnpaidToResident');
-        Route::post('/notify-one-by-one',       'sendUnpaidOneByOneToResident');
-        Route::get('/by-regu',                  'getPembayaranByRegu');
-        Route::get('/{nik}',                    'show');
+        Route::post('/',                         'store');
+        Route::patch('/set-active/{id}',                         'setActive');
+        Route::delete('/{id}',                         'destroy');
+        Route::get('/active',                         'active');
+        Route::get('/download/{id}', 'download');
     });
 
     // Midtrans (authenticated)
@@ -150,6 +163,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('laporan')->controller(LaporanController::class)->group(function () {
         Route::get('/',              'index');
         Route::get('/export-excel',  'exportExcel');
+        Route::get('/export-pdf',    'exportPdf');
     });
 
     // Notifications
@@ -165,8 +179,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::prefix('client/auth')->controller(ClientAuthController::class)->group(function () {
         Route::post('/logout',          'logout');
-        Route::get('/profile',          'profile');         
-        Route::put('/profile',          'updateProfile'); 
+        Route::get('/profile',          'profile');
+        Route::put('/profile',          'updateProfile');
     });
 
     // Notifications
@@ -188,6 +202,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/',                  'payment');
         Route::get('/riwayat',            'getHistories');
         Route::get('/paid-months',        'getPaidMonths');
+    });
+
+    Route::prefix('client/qris')->controller(ClientQrSettingController::class)->group(function () {
+        Route::get('/',                         'active');
     });
 
     // Anggota Regu

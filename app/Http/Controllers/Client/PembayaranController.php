@@ -16,11 +16,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 use Illuminate\Support\Str;
-use Midtrans\Snap;
-use Kreait\Firebase\Messaging\CloudMessage;
-use Kreait\Firebase\Messaging\Notification as NotificationMessaging;
 
 class PembayaranController extends Controller
 {
@@ -37,6 +37,8 @@ class PembayaranController extends Controller
             'id_informasi_iuran' => 'required|exists:informasi_iuran,id',
             'bulan'              => 'nullable|array',
             'bulan.*'            => 'integer|min:1|max:12',
+            'metode_bayar'       => 'required|in:transfer,qris',
+            'bukti_pembayaran'   => 'required|image|mimes:jpg,jpeg,png|max:2048',
             'note'               => 'nullable|string|max:500',
         ], [
             'id_informasi_iuran.required' => 'Informasi iuran wajib dipilih.',
@@ -45,6 +47,12 @@ class PembayaranController extends Controller
             'bulan.*.integer'             => 'Nilai bulan harus berupa angka.',
             'bulan.*.min'                 => 'Bulan minimal 1.',
             'bulan.*.max'                 => 'Bulan maksimal 12.',
+            'metode_bayar.required'       => 'Metode pembayaran wajib diisi.',
+            'metode_bayar.in'             => 'Metode bayar harus salah satu dari: transfer atau qris.',
+            'bukti_pembayaran.required'   => 'Bukti pembayaran wajib diunggah.',
+            'bukti_pembayaran.image'      => 'Bukti pembayaran harus berupa gambar.',
+            'bukti_pembayaran.mimes'      => 'Bukti pembayaran harus berformat jpg, jpeg, atau png.',
+            'bukti_pembayaran.max'        => 'Ukuran bukti pembayaran maksimal 2MB.',
             'note.max'                    => 'Catatan maksimal 500 karakter.',
         ]);
 
@@ -67,11 +75,9 @@ class PembayaranController extends Controller
             $data['bulan'] = null;
         }
 
-        // Cek pembayaran existing
+        $totalBayar    = $iuran->jumlah_iuran;
         $existingQuery = Pembayaran::where('nik', $warga->nik)
             ->where('id_informasi_iuran', $data['id_informasi_iuran']);
-
-        $totalBayar = $iuran->jumlah_iuran;
 
         if ($iuran->jenis_iuran === 'bulanan' && !empty($data['bulan'])) {
             $totalBayar = $iuran->jumlah_iuran * count($data['bulan']);
@@ -85,31 +91,29 @@ class PembayaranController extends Controller
         $existingPayment = $existingQuery->orderByDesc('created_at')->first();
 
         if ($existingPayment) {
-            if ($existingPayment->status_bayar === 'paid') {
+            if ($existingPayment->status_bayar === 'approved') {
                 return ApiResponse::error('Iuran sudah dibayar.', null, 409);
             }
 
-            if (in_array($existingPayment->status_bayar, ['pending', 'waiting_payment'])) {
-                $snapToken = json_decode($existingPayment->midtrans_raw_response, true)['snap_token'] ?? null;
-
+            if ($existingPayment->status_bayar === 'pending') {
                 return ApiResponse::success([
                     'pembayaran' => $existingPayment,
-                    'snap_token' => $snapToken,
-                ], 'Melanjutkan pembayaran yang masih pending.');
+                ], 'Pembayaran sebelumnya masih menunggu validasi pengurus.');
             }
         }
 
         DB::beginTransaction();
 
         try {
-            do {
-                $transactionId = 'TRX-' . now()->format('Ymd') . '-' . Str::upper(Str::random(6));
-            } while (Pembayaran::where('transaction_id', $transactionId)->exists());
+            $file     = $request->file('bukti_pembayaran');
+            $filename = 'bukti-' . time() . '-' . Str::random(6) . '.jpg';
 
-            $orderId = 'IURAN-' . Str::uuid();
+            $manager = new ImageManager(new Driver());
+            $image   = $manager->read($file)->toJpeg(75);
+
+            Storage::disk('public')->put('bukti-pembayaran/' . $filename, (string) $image);
 
             $pembayaran = Pembayaran::create([
-                'transaction_id'        => $transactionId,
                 'nik'                   => $warga->nik,
                 'id_informasi_iuran'    => $data['id_informasi_iuran'],
                 'nik_snapshot'          => $warga->nik,
@@ -118,37 +122,17 @@ class PembayaranController extends Controller
                 'bulan'                 => $data['bulan'] ?? null,
                 'tanggal_bayar'         => now()->toDateString(),
                 'total_bayar'           => $totalBayar,
-                'metode_bayar'          => 'transfer',
-                'status_bayar'          => 'waiting_payment',
+                'metode_bayar'          => $data['metode_bayar'],
+                'status_bayar'          => 'pending',
+                'submitted_at'          => now(),
                 'processed_by'          => null,
-                'midtrans_order_id'     => $orderId,
+                'bukti_pembayaran'      => 'bukti-pembayaran/' . $filename,
                 'note'                  => $data['note'] ?? null,
-            ]);
-
-            $params = [
-                'transaction_details' => [
-                    'order_id'     => $orderId,
-                    'gross_amount' => (int) $totalBayar,
-                ],
-                'customer_details' => [
-                    'first_name' => $warga->nama_warga,
-                ],
-                'enabled_payments' => ['bank_transfer'],
-                'expiry'           => [
-                    'unit'     => 'minutes',
-                    'duration' => 30,
-                ],
-            ];
-
-            $snapToken = Snap::getSnapToken($params);
-
-            $pembayaran->update([
-                'midtrans_raw_response' => json_encode(['snap_token' => $snapToken]),
             ]);
 
             $this->writeLog(
                 'create',
-                "Warga {$warga->nama_warga} (NIK: {$warga->nik}) membuat transaksi pembayaran ID {$pembayaran->id}.",
+                "Warga {$warga->nama_warga} (NIK: {$warga->nik}) mengajukan pembayaran ID {$pembayaran->id} via {$data['metode_bayar']}.",
                 $request
             );
 
@@ -158,8 +142,7 @@ class PembayaranController extends Controller
 
             return ApiResponse::success([
                 'pembayaran' => $pembayaran,
-                'snap_token' => $snapToken,
-            ], 'Transaksi pembayaran berhasil dibuat.', 201);
+            ], 'Bukti pembayaran berhasil dikirim. Menunggu validasi pengurus.', 201);
         } catch (\Throwable $e) {
             DB::rollBack();
             return ApiResponse::error('Terjadi kesalahan saat menyimpan pembayaran.', $e->getMessage(), 500);
@@ -273,7 +256,7 @@ class PembayaranController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::id(),
+                'id_user'            => Auth::user()->id,
                 'nama_user_snapshot' => Auth::user()?->name,
                 'action'             => $action,
                 'description'        => $description,

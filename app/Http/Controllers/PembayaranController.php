@@ -66,8 +66,8 @@ class PembayaranController extends Controller
             $query->where('metode_bayar', $request->metode_bayar);
         }
 
-        if ($request->filled('status')) {
-            $query->where('status_bayar', $request->status);
+        if ($request->filled('status_bayar')) {
+            $query->where('status_bayar', $request->status_bayar);
         }
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
@@ -112,6 +112,7 @@ class PembayaranController extends Controller
             'bulan.*'            => 'integer|min:1|max:12',
             'metode_bayar'       => 'required|in:tunai,transfer,qris',
             'bukti_pembayaran'   => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'note'               => 'nullable|string|max:500',
         ], [
             'nik.required'                => 'NIK wajib diisi.',
             'nik.exists'                  => 'NIK tidak ditemukan dalam data warga.',
@@ -131,14 +132,14 @@ class PembayaranController extends Controller
             'bukti_pembayaran.image'      => 'Bukti pembayaran harus berupa gambar.',
             'bukti_pembayaran.mimes'      => 'Bukti pembayaran harus berformat jpg, jpeg, atau png.',
             'bukti_pembayaran.max'        => 'Ukuran bukti pembayaran maksimal 2MB.',
+            'note.max'                    => 'Catatan maksimal 500 karakter.',
         ]);
 
         if ($validator->fails()) {
             return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
         }
 
-        $data = $validator->validated();
-
+        $data  = $validator->validated();
         $iuran = InformasiIuran::find($data['id_informasi_iuran']);
 
         if ($iuran->jenis_iuran === 'bulanan' && empty($data['bulan'])) {
@@ -163,17 +164,14 @@ class PembayaranController extends Controller
         $existingPayment = $existingQuery->orderByDesc('created_at')->first();
 
         if ($existingPayment) {
-            if ($existingPayment->status_bayar === 'paid') {
+            if ($existingPayment->status_bayar === 'approved') {
                 return ApiResponse::error('Iuran sudah dibayar.', null, 409);
             }
 
-            if (in_array($existingPayment->status_bayar, ['pending', 'waiting_payment'])) {
-                $snapToken = json_decode($existingPayment->midtrans_raw_response, true)['snap_token'] ?? null;
-
+            if ($existingPayment->status_bayar === 'pending') {
                 return ApiResponse::success([
                     'pembayaran' => $existingPayment,
-                    'snap_token' => $snapToken,
-                ], 'Melanjutkan pembayaran yang masih pending.');
+                ], 'Terdapat pembayaran yang masih menunggu validasi.');
             }
         }
 
@@ -182,33 +180,21 @@ class PembayaranController extends Controller
         DB::beginTransaction();
 
         try {
-            $statusBayar = 'pending';
-            $pathBukti   = null;
+            $pathBukti = null;
 
-            if ($data['metode_bayar'] === 'tunai') {
-                if ($request->hasFile('bukti_pembayaran')) {
-                    $file     = $request->file('bukti_pembayaran');
-                    $filename = 'bukti-' . time() . '-' . Str::random(6) . '.jpg';
+            if ($request->hasFile('bukti_pembayaran')) {
+                $file     = $request->file('bukti_pembayaran');
+                $filename = 'bukti-' . time() . '-' . Str::random(6) . '.jpg';
 
-                    $manager = new ImageManager(new Driver());
-                    $image   = $manager->read($file)->toJpeg(75);
+                $manager = new ImageManager(new Driver());
+                $image   = $manager->read($file)->toJpeg(75);
 
-                    Storage::disk('public')->put('bukti-pembayaran/' . $filename, (string) $image);
+                Storage::disk('public')->put('bukti-pembayaran/' . $filename, (string) $image);
 
-                    $pathBukti = 'bukti-pembayaran/' . $filename;
-                }
-
-                $statusBayar = 'manual';
+                $pathBukti = 'bukti-pembayaran/' . $filename;
             }
 
-            do {
-                $transactionId = 'TRX-' . now()->format('Ymd') . '-' . Str::upper(Str::random(6));
-            } while (Pembayaran::where('transaction_id', $transactionId)->exists());
-
-            $orderId = 'IURAN-' . Str::uuid();
-
             $pembayaran = Pembayaran::create([
-                'transaction_id'        => $transactionId,
                 'nik'                   => $data['nik'],
                 'id_informasi_iuran'    => $data['id_informasi_iuran'],
                 'nik_snapshot'          => $warga->nik,
@@ -218,44 +204,14 @@ class PembayaranController extends Controller
                 'tanggal_bayar'         => $data['tanggal_bayar'],
                 'total_bayar'           => $data['total_bayar'],
                 'metode_bayar'          => $data['metode_bayar'],
-                'status_bayar'          => $statusBayar,
+                'status_bayar'          => 'approved', // langsung approved karena diinput pengurus
+                'submitted_at'          => now(),
                 'processed_by'          => Auth::user()->id,
-                'midtrans_order_id'     => $data['metode_bayar'] !== 'tunai' ? $orderId : null,
+                'validated_by'          => Auth::user()->id,
+                'validated_at'          => now(),
                 'bukti_pembayaran'      => $pathBukti,
+                'note'                  => $data['note'] ?? null,
             ]);
-
-            $snapToken = null;
-
-            if (in_array($data['metode_bayar'], ['transfer', 'qris'])) {
-                $params = [
-                    'transaction_details' => [
-                        'order_id'     => $orderId,
-                        'gross_amount' => (int) $data['total_bayar'],
-                    ],
-                    'customer_details' => [
-                        'first_name' => $warga->nama_warga,
-                    ],
-                    'expiry' => [
-                        'unit'     => 'minutes',
-                        'duration' => 30,
-                    ],
-                ];
-
-                if ($data['metode_bayar'] === 'qris') {
-                    $params['enabled_payments'] = ['other_qris'];
-                }
-
-                if ($data['metode_bayar'] === 'transfer') {
-                    $params['enabled_payments'] = ['bank_transfer'];
-                }
-
-                $snapToken = Snap::getSnapToken($params);
-
-                $pembayaran->update([
-                    'status_bayar'         => 'waiting_payment',
-                    'midtrans_raw_response' => json_encode(['snap_token' => $snapToken]),
-                ]);
-            }
 
             $this->writeLog(
                 'create',
@@ -267,7 +223,6 @@ class PembayaranController extends Controller
 
             return ApiResponse::success([
                 'pembayaran' => $pembayaran,
-                'snap_token' => $snapToken,
             ], 'Transaksi pembayaran berhasil.', 201);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -310,7 +265,7 @@ class PembayaranController extends Controller
         $query = Warga::with(['anggotaRegu.regu'])
             ->whereDoesntHave('pembayaran', function ($q) use ($data, $iuran) {
                 $q->where('id_informasi_iuran', $data['id_informasi_iuran'])
-                    ->whereIn('status_bayar', ['paid', 'manual']);
+                    ->whereIn('status_bayar', ['approved', 'pending']);
 
                 if ($iuran->jenis_iuran === 'bulanan') {
                     $q->whereJsonContains('bulan', (int) $data['bulan']);
@@ -347,7 +302,7 @@ class PembayaranController extends Controller
 
         $data = Pembayaran::with(['informasiIuran', 'diprosesoleh:id,name,role'])
             ->where('nik', $request->nik)
-            ->whereIn('status_bayar', ['paid', 'manual'])
+            ->whereIn('status_bayar', ['approved', 'pending'])
             ->orderByDesc('tanggal_bayar')
             ->paginate($request->get('per_page', 10));
 
@@ -367,7 +322,7 @@ class PembayaranController extends Controller
 
         $data = InformasiIuran::whereDoesntHave('pembayaran', function ($q) use ($nik) {
             $q->where('nik', $nik)
-                ->whereIn('status_bayar', ['paid', 'manual']);
+                ->whereIn('status_bayar', ['approved', 'pending']);
         })
             ->where('status_aktif', true)
             ->whereNull('deleted_at')
@@ -393,7 +348,7 @@ class PembayaranController extends Controller
 
         $paidMonths = Pembayaran::where('id_informasi_iuran', $request->id_informasi_iuran)
             ->where('nik', $request->nik)
-            ->whereIn('status_bayar', ['paid', 'manual'])
+            ->whereIn('status_bayar', ['approved', 'pending'])
             ->pluck('bulan')
             ->flatten()
             ->unique()
@@ -432,7 +387,7 @@ class PembayaranController extends Controller
                     ->whereDoesntHave(
                         'pembayaran',
                         fn($q2) =>
-                        $q2->where('status_bayar', 'paid')
+                        $q2->whereIn('status_bayar', ['approved', 'pending'])
                             ->whereHas(
                                 'informasiIuran',
                                 fn($q3) =>
@@ -473,7 +428,7 @@ class PembayaranController extends Controller
         $wargaList = Warga::with(['user.devices'])
             ->whereDoesntHave('pembayaran', function ($q) use ($data, $iuran) {
                 $q->where('id_informasi_iuran', $data['id_informasi_iuran'])
-                    ->where('status_bayar', 'paid');
+                    ->whereIn('status_bayar', ['approved', 'pending']);
 
                 if ($iuran->jenis_iuran === 'bulanan') {
                     $q->whereJsonContains('bulan', (int) $data['month']);
@@ -616,7 +571,7 @@ class PembayaranController extends Controller
         $warga = Warga::with('user.devices')->find($request->nik);
 
         $paidIuranIds = Pembayaran::where('nik', $warga->nik)
-            ->where('status_bayar', 'paid')
+            ->whereIn('status_bayar', ['approved', 'pending'])
             ->pluck('id_informasi_iuran');
 
         $unpaidList = InformasiIuran::whereNotIn('id', $paidIuranIds)
@@ -673,7 +628,7 @@ class PembayaranController extends Controller
         $warga = Warga::with('user.devices')->find($request->nik);
 
         $paidIuranIds = Pembayaran::where('nik', $warga->nik)
-            ->where('status_bayar', 'paid')
+            ->whereIn('status_bayar', ['approved', 'pending'])
             ->pluck('id_informasi_iuran');
 
         $unpaidList = InformasiIuran::whereNotIn('id', $paidIuranIds)
@@ -784,7 +739,7 @@ class PembayaranController extends Controller
         $request->validate([
             'id_informasi_iuran' => 'nullable|exists:informasi_iuran,id',
             'id_regu'            => 'nullable|exists:regu,id',
-            'status_bayar'       => 'nullable|in:paid,pending,failed',
+            'status_bayar'       => 'nullable|in:approved,pending,rejected',
             'nama_warga'         => 'nullable|string', // ← tambah ini
         ]);
 
@@ -858,6 +813,141 @@ class PembayaranController extends Controller
         });
 
         return ApiResponse::success($data, 'Data pembayaran berhasil diambil.');
+    }
+
+    public function approve(int $id, Request $request): JsonResponse
+    {
+        DB::beginTransaction();
+
+        try {
+            $pembayaran = Pembayaran::with(['informasiIuran', 'warga.user.devices'])->find($id);
+
+            if (!$pembayaran) {
+                return ApiResponse::error('Data pembayaran tidak ditemukan.', null, 404);
+            }
+
+            if ($pembayaran->status_bayar !== Pembayaran::STATUS_PENDING) {
+                return ApiResponse::error('Pembayaran ini tidak dalam status pending.', null, 422);
+            }
+
+            $pembayaran->update([
+                'status_bayar' => Pembayaran::STATUS_APPROVED,
+                'validated_by' => Auth::user()->id,
+                'validated_at' => now(),
+            ]);
+
+            $this->writeLog(
+                'update',
+                "Pembayaran ID {$pembayaran->id} atas nama {$pembayaran->nama_warga_snapshot} disetujui.",
+                $request
+            );
+
+            DB::commit();
+
+            $title   = 'Pembayaran Disetujui ✅';
+            $message = "Pembayaran {$pembayaran->informasiIuran?->judul_iuran} Anda telah disetujui oleh pengurus.";
+
+            $tokens = collect($pembayaran->warga?->user?->devices?->pluck('fcm_token') ?? [])
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray();
+
+            if (!empty($tokens)) {
+                (new \App\Services\FirebaseService())->sendBulk($tokens, $title, $message);
+            }
+
+            // simpan ke table notifikasi
+            if ($pembayaran->warga?->user) {
+                DB::table('notifications')->insert([
+                    'user_id'    => $pembayaran->warga->user->id,
+                    'title'      => $title,
+                    'message'    => $message,
+                    'is_read'    => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return ApiResponse::success(null, 'Pembayaran berhasil disetujui.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return ApiResponse::error('Terjadi kesalahan saat menyetujui pembayaran.', $e->getMessage(), 500);
+        }
+    }
+
+    public function reject(int $id, Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'rejection_reason' => 'required|string|max:500',
+        ], [
+            'rejection_reason.required' => 'Alasan penolakan wajib diisi.',
+            'rejection_reason.max'      => 'Alasan penolakan maksimal 500 karakter.',
+        ]);
+
+        if ($validator->fails()) {
+            return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $pembayaran = Pembayaran::with(['informasiIuran', 'warga.user.devices'])->find($id);
+
+            if (!$pembayaran) {
+                return ApiResponse::error('Data pembayaran tidak ditemukan.', null, 404);
+            }
+
+            if ($pembayaran->status_bayar !== Pembayaran::STATUS_PENDING) {
+                return ApiResponse::error('Pembayaran ini tidak dalam status pending.', null, 422);
+            }
+
+            $pembayaran->update([
+                'status_bayar'     => Pembayaran::STATUS_REJECTED,
+                'validated_by'     => Auth::user()->id,
+                'validated_at'     => now(),
+                'rejection_reason' => $request->rejection_reason,
+            ]);
+
+            $this->writeLog(
+                'update',
+                "Pembayaran ID {$pembayaran->id} atas nama {$pembayaran->nama_warga_snapshot} ditolak. Alasan: {$request->rejection_reason}",
+                $request
+            );
+
+            DB::commit();
+
+            // ── Notifikasi ────────────────────────────────────────────
+            $title   = 'Pembayaran Ditolak ❌';
+            $message = "Pembayaran {$pembayaran->informasiIuran?->judul_iuran} Anda ditolak. Alasan: {$request->rejection_reason}";
+
+            $tokens = collect($pembayaran->warga?->user?->devices?->pluck('fcm_token') ?? [])
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray();
+
+            if (!empty($tokens)) {
+                (new \App\Services\FirebaseService())->sendBulk($tokens, $title, $message);
+            }
+
+            // simpan ke table notifikasi
+            if ($pembayaran->warga?->user) {
+                DB::table('notifications')->insert([
+                    'user_id'    => $pembayaran->warga->user->id,
+                    'title'      => $title,
+                    'message'    => $message,
+                    'is_read'    => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return ApiResponse::success(null, 'Pembayaran berhasil ditolak.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return ApiResponse::error('Terjadi kesalahan saat menolak pembayaran.', $e->getMessage(), 500);
+        }
     }
 
     private function writeLog(string $action, string $description, Request $request): void

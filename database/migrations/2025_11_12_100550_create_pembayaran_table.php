@@ -10,7 +10,6 @@ return new class extends Migration
     {
         Schema::create('pembayaran', function (Blueprint $table) {
             $table->id();
-            $table->string('transaction_id')->nullable();
             $table->string('nik', 32)->nullable();
             $table->foreignId('id_informasi_iuran')
                   ->constrained('informasi_iuran')
@@ -23,24 +22,21 @@ return new class extends Migration
             $table->bigInteger('total_bayar')->default(0);
             $table->string('metode_bayar')->nullable();
             $table->enum('status_bayar', [
-                'pending',
-                'waiting_payment',
-                'paid',
-                'failed',
-                'expired',
-                'canceled',
-                'manual',
+                'pending',      // sudah submit, menunggu validasi pengurus
+                'approved',     // disetujui pengurus
+                'rejected',     // ditolak pengurus
             ])->default('pending');
+            $table->dateTime('submitted_at')->nullable();
             $table->foreignId('processed_by')
                   ->nullable()
                   ->constrained('users')
                   ->nullOnDelete();
-            $table->string('midtrans_order_id')->nullable();
-            $table->string('midtrans_transaction_id')->nullable();
-            $table->string('midtrans_va_number')->nullable();
-            $table->text('midtrans_qr_string')->nullable();
-            $table->string('midtrans_payment_type')->nullable();
-            $table->json('midtrans_raw_response')->nullable();
+            $table->foreignId('validated_by')
+                  ->nullable()
+                  ->constrained('users')
+                  ->nullOnDelete();
+            $table->dateTime('validated_at')->nullable();
+            $table->text('rejection_reason')->nullable();
             $table->string('bukti_pembayaran')->nullable();
             $table->text('note')->nullable();
             $table->timestamps();
@@ -50,7 +46,6 @@ return new class extends Migration
                   ->on('warga')
                   ->nullOnDelete();
         });
-
     }
 
     public function down(): void

@@ -85,7 +85,7 @@ class DropdownController extends Controller
             'anggotaRegu.regu',
             'pembayaran' => function ($q) use ($request, $iuran) {
                 $q->where('id_informasi_iuran', $request->id_informasi_iuran)
-                    ->whereIn('status_bayar', ['paid', 'manual']);
+                    ->whereIn('status_bayar', ['approved', 'pending']);
 
                 if ($iuran->jenis_iuran === 'bulanan') {
                     $q->whereNotNull('bulan');

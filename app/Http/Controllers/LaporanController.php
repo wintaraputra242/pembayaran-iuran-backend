@@ -9,9 +9,12 @@ use App\Models\ActivityLog;
 use App\Models\Pembayaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\InformasiIuran;
+use App\Models\Warga;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Str;
 
 class LaporanController extends Controller
 {
@@ -26,22 +29,30 @@ class LaporanController extends Controller
             })
             ->leftJoin('regu', 'anggota_regu.id_regu', '=', 'regu.id')
             ->leftJoin('informasi_iuran', 'pembayaran.id_informasi_iuran', '=', 'informasi_iuran.id')
-            ->leftJoin('users', 'pembayaran.processed_by', '=', 'users.id')
+            ->leftJoin('users as petugas_user', 'pembayaran.processed_by', '=', 'petugas_user.id')
+            ->leftJoin('users as validator_user', 'pembayaran.validated_by', '=', 'validator_user.id')
             ->whereNull('pembayaran.deleted_at')
             ->select([
                 'pembayaran.id',
-                'pembayaran.transaction_id',
                 'pembayaran.tanggal_bayar',
+                'pembayaran.submitted_at',
+                'pembayaran.validated_at',
                 'pembayaran.bulan',
                 'pembayaran.metode_bayar',
                 'pembayaran.status_bayar',
                 'pembayaran.total_bayar',
+                'pembayaran.jumlah_iuran_snapshot',
                 'pembayaran.bukti_pembayaran',
+                'pembayaran.rejection_reason',
+                'pembayaran.note',
                 DB::raw('COALESCE(pembayaran.nama_warga_snapshot, warga.nama_warga) as nama_warga'),
+                DB::raw('COALESCE(pembayaran.nik_snapshot, pembayaran.nik) as nik'),
                 'regu.nama_regu as regu',
+                'regu.id as regu_id',
                 'informasi_iuran.judul_iuran',
                 'informasi_iuran.jenis_iuran',
-                'users.name as petugas',
+                'petugas_user.name as petugas',
+                'validator_user.name as divalidasi_oleh',
             ]);
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
@@ -64,11 +75,20 @@ class LaporanController extends Controller
         }
 
         if ($request->filled('regu')) {
-            $query->where('anggota_regu.id_regu', $request->regu);
+            $query->where('regu.id', $request->regu);
         }
 
         if ($request->filled('informasi_iuran')) {
             $query->where('pembayaran.id_informasi_iuran', $request->informasi_iuran);
+        }
+
+        // Filter keyword nama warga
+        if ($request->filled('keyword')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('pembayaran.nama_warga_snapshot', 'like', '%' . $request->keyword . '%')
+                    ->orWhere('warga.nama_warga', 'like', '%' . $request->keyword . '%')
+                    ->orWhere('pembayaran.nik_snapshot', 'like', '%' . $request->keyword . '%');
+            });
         }
 
         $data = $query
@@ -99,6 +119,141 @@ class LaporanController extends Controller
         );
 
         return Excel::download(new LaporanPembayaranExport($filters), $filename);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $request->validate([
+            'id_informasi_iuran' => 'required|exists:informasi_iuran,id',
+        ], [
+            'id_informasi_iuran.required' => 'Informasi iuran wajib dipilih.',
+            'id_informasi_iuran.exists'   => 'Informasi iuran tidak ditemukan.',
+        ]);
+
+        $iuran = InformasiIuran::findOrFail($request->id_informasi_iuran);
+
+        $this->writeLog(
+            'export',
+            "Mengunduh laporan {$iuran->jenis_iuran} '{$iuran->judul_iuran}' dalam format PDF.",
+            $request
+        );
+
+        if ($iuran->jenis_iuran === 'bulanan') {
+            return $this->exportBulanan($iuran);
+        }
+
+        return $this->exportKematian($iuran);
+    }
+
+    // ─── Export Bulanan ───────────────────────────────────────────────────────────
+
+    private function exportBulanan(InformasiIuran $iuran)
+    {
+        // Ambil semua warga aktif
+        $wargas = Warga::with([
+            'anggotaRegu' => fn($q) => $q->whereNull('deleted_at')
+                ->where('status_keaktifan', 'aktif')
+                ->with('regu'),
+        ])
+            ->whereNull('deleted_at')
+            ->select('nik', 'nama_warga')
+            ->orderBy('nama_warga')
+            ->get();
+
+        // Ambil semua pembayaran approved untuk iuran ini
+        $pembayarans = Pembayaran::where('id_informasi_iuran', $iuran->id)
+            ->whereIn('status_bayar', ['approved'])
+            ->whereNotNull('bulan')
+            ->get()
+            ->keyBy('nik'); // key by nik untuk lookup cepat
+
+        $data = $wargas->map(function ($warga) use ($pembayarans) {
+            $bayar = $pembayarans->get($warga->nik);
+
+            $bulanDibayar = [];
+            if ($bayar) {
+                $bulan = $bayar->bulan;
+                if (is_string($bulan)) {
+                    $bulan = json_decode($bulan, true) ?? [];
+                }
+                $bulanDibayar = collect($bulan)->map(fn($b) => (int) $b)->toArray();
+            }
+
+            $anggotaAktif = $warga->anggotaRegu->first();
+
+            return [
+                'nama_warga'   => $warga->nama_warga,
+                'regu'         => $anggotaAktif?->regu?->nama_regu ?? '-',
+                'bulan_dibayar' => $bulanDibayar,
+            ];
+        })->values()->toArray();
+
+        $bulanHeaders = [
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'Mei',
+            'Jun',
+            'Jul',
+            'Agt',
+            'Sep',
+            'Okt',
+            'Nov',
+            'Des',
+        ];
+
+        $pdf = Pdf::loadView('exports.laporan-bulanan', [
+            'iuran'        => $iuran,
+            'wargas'       => $data,
+            'bulanHeaders' => $bulanHeaders,
+        ])->setPaper('a4', 'landscape');
+
+        $filename = 'laporan-bulanan-' . Str::slug($iuran->judul_iuran) . '-' . now()->format('Ymd') . '.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    // ─── Export Kematian ──────────────────────────────────────────────────────────
+
+    private function exportKematian(InformasiIuran $iuran)
+    {
+        // Ambil semua warga aktif
+        $wargas = Warga::with([
+            'anggotaRegu' => fn($q) => $q->whereNull('deleted_at')
+                ->where('status_keaktifan', 'aktif')
+                ->with('regu'),
+        ])
+            ->whereNull('deleted_at')
+            ->select('nik', 'nama_warga')
+            ->orderBy('nama_warga')
+            ->get();
+
+        // NIK yang sudah bayar (approved)
+        $sudahBayarNiks = Pembayaran::where('id_informasi_iuran', $iuran->id)
+            ->whereIn('status_bayar', ['approved'])
+            ->pluck('nik')
+            ->unique()
+            ->toArray();
+
+        $data = $wargas->map(function ($warga) use ($sudahBayarNiks) {
+            $anggotaAktif = $warga->anggotaRegu->first();
+
+            return [
+                'nama_warga'  => $warga->nama_warga,
+                'regu'        => $anggotaAktif?->regu?->nama_regu ?? '-',
+                'sudah_bayar' => in_array($warga->nik, $sudahBayarNiks),
+            ];
+        })->values()->toArray();
+
+        $pdf = Pdf::loadView('exports.laporan-kematian', [
+            'iuran'  => $iuran,
+            'wargas' => $data,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'laporan-kematian-' . Str::slug($iuran->judul_iuran) . '-' . now()->format('Ymd') . '.pdf';
+
+        return $pdf->download($filename);
     }
 
     private function writeLog(string $action, string $description, Request $request): void

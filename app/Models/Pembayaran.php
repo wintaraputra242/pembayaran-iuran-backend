@@ -14,7 +14,6 @@ class Pembayaran extends Model
     protected $table = 'pembayaran';
 
     protected $fillable = [
-        'transaction_id',
         'nik',
         'id_informasi_iuran',
         'nik_snapshot',
@@ -25,22 +24,29 @@ class Pembayaran extends Model
         'total_bayar',
         'metode_bayar',
         'status_bayar',
+        'submitted_at',
         'processed_by',
-        'midtrans_order_id',
-        'midtrans_transaction_id',
-        'midtrans_va_number',
-        'midtrans_qr_string',
-        'midtrans_payment_type',
-        'midtrans_raw_response',
+        'validated_by',
+        'validated_at',
+        'rejection_reason',
         'bukti_pembayaran',
-        'note'
+        'note',
     ];
 
     protected $casts = [
-        'bulan'                 => 'array',
-        'midtrans_raw_response' => 'array',
-        'tanggal_bayar'         => 'date',
+        'bulan'        => 'array',
+        'tanggal_bayar'=> 'date',
+        'submitted_at' => 'datetime',
+        'validated_at' => 'datetime',
     ];
+
+    const STATUS_PENDING  = 'pending';
+    const STATUS_APPROVED = 'approved';
+    const STATUS_REJECTED = 'rejected';
+
+    const METODE_CASH     = 'cash';
+    const METODE_QRIS     = 'qris';
+    const METODE_TRANSFER = 'transfer';
 
     public function warga(): BelongsTo
     {
@@ -52,8 +58,28 @@ class Pembayaran extends Model
         return $this->belongsTo(InformasiIuran::class, 'id_informasi_iuran')->withTrashed();
     }
 
-    public function diprosesoleh(): BelongsTo
+    public function diprosesOleh(): BelongsTo
     {
         return $this->belongsTo(User::class, 'processed_by')->withTrashed();
+    }
+
+    public function divalidasiOleh(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'validated_by')->withTrashed();
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status_bayar === self::STATUS_PENDING;
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status_bayar === self::STATUS_APPROVED;
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status_bayar === self::STATUS_REJECTED;
     }
 }
