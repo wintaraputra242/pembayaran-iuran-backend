@@ -20,7 +20,7 @@ class AnggotaReguController extends Controller
         $user = Auth::user();
 
         $query = AnggotaRegu::with([
-            'warga:nik,nama_warga',
+            'warga:nik,nama_warga,no_hp,alamat,status_keaktifan,created_at',
             'regu:id,nama_regu',
         ]);
 
@@ -90,8 +90,12 @@ class AnggotaReguController extends Controller
         $idRegu = $validator->validated()['id_regu'];
         $regu   = Regu::find($idRegu);
 
+        // Hanya anggap "sudah terdaftar" kalau keanggotaannya masih benar-benar aktif.
+        // Warga dengan keanggotaan nonaktif (misalnya karena regu lamanya dinonaktifkan)
+        // boleh didaftarkan lagi ke regu baru.
         $existingNik = AnggotaRegu::whereIn('nik', $niks)
             ->whereNull('deleted_at')
+            ->where('status_keaktifan', 'aktif')
             ->pluck('nik')
             ->toArray();
 
@@ -103,6 +107,13 @@ class AnggotaReguController extends Controller
                 ['nik_sudah_terdaftar' => $existingNik]
             );
         }
+
+        // Bersihkan sisa baris keanggotaan lama yang nonaktif untuk NIK yang sama,
+        // supaya tidak menumpuk baris "tidak_aktif" tak terpakai di regu-regu sebelumnya.
+        AnggotaRegu::whereIn('nik', $niks)
+            ->whereNull('deleted_at')
+            ->where('status_keaktifan', 'tidak_aktif')
+            ->delete();
 
         $reguHasLeader = AnggotaRegu::where('id_regu', $idRegu)
             ->where('is_leader', true)
@@ -295,7 +306,7 @@ class AnggotaReguController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::id(),
+                'id_user'            => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
                 'action'             => $action,
                 'description'        => $description,

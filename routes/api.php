@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\AiChatbotController;
 use App\Http\Controllers\QrSettingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\WargaController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\MidtransController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\Client\WargaChatbotController;
 use Illuminate\Support\Facades\Route;
 
 // Auth (public)
@@ -133,14 +135,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/history-paid',         'historyAlreadyPaid');
         Route::get('/history-unpaid',       'historyNotYetPaid');
         Route::get('/paid-month',           'getPaidMonth');
+        Route::get('/riwayat-ketua-regu',   'riwayatKetuaRegu');
         Route::post('/notify-unpaid',       'sendUnpaidResidentsNotification');
         Route::post('/notify-resident',     'sendResidentNotification');
         Route::post('/notify-all-unpaid',   'sendAllUnpaidToResident');
         Route::post('/notify-one-by-one',   'sendUnpaidOneByOneToResident');
         Route::get('/by-regu',              'getPembayaranByRegu');
+        Route::get('/show-by-id/{id}',      'showById');
         Route::get('/{nik}',                'show');
         Route::post('/{id}/approve',        'approve');
         Route::post('/{id}/reject',         'reject');
+        Route::patch('/{id}/cancel',        'cancel');
     });
 
     Route::prefix('qris')->controller(QrSettingController::class)->group(function () {
@@ -172,6 +177,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/unread-count', 'unreadCount');
         Route::patch('/read-all',   'markAllAsRead');
         Route::patch('/{id}/read',  'markAsRead');
+    });
+
+    Route::prefix('chatbot')->group(function () {
+        Route::post('/chat',               [AiChatbotController::class, 'chat']);
+        Route::get('/suggested-questions', [AiChatbotController::class, 'suggestedQuestions']);
     });
 
 
@@ -206,10 +216,17 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('client/qris')->controller(ClientQrSettingController::class)->group(function () {
         Route::get('/',                         'active');
+        Route::get('/download/{id}',            'download');
     });
 
     // Anggota Regu
     Route::prefix('client/anggota-regu')->controller(ClientAnggotaReguController::class)->group(function () {
         Route::get('/',                   'getAnggotaRegu');
+    });
+
+    // Chatbot
+    Route::prefix('client/chatbot')->group(function () {
+        Route::post('/chat',               [WargaChatbotController::class, 'chat']);
+        Route::get('/suggested-questions', [WargaChatbotController::class, 'suggestedQuestions']);
     });
 });

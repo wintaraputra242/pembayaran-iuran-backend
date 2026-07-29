@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Client;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\QrSetting;
+use Illuminate\Support\Facades\Storage;
 
 class QrSettingController extends Controller
 {
@@ -17,10 +18,23 @@ class QrSettingController extends Controller
     }
 
     return ApiResponse::success([
+      'id'             => $qris->id,
       'image'          => asset('storage/' . $qris->image),
       'nama_rekening'  => $qris->nama_rekening,
       'nomor_rekening' => $qris->nomor_rekening,
       'keterangan'     => $qris->keterangan,
     ], 'success');
+  }
+
+  public function download(int $id)
+  {
+    $qris = QrSetting::findOrFail($id);
+
+    $path = Storage::disk('public')->path($qris->image);
+
+    return response()->download($path, 'qris.png', [
+      'Content-Type'        => 'image/png',
+      'Content-Disposition' => 'attachment; filename="qris.png"',
+    ]);
   }
 }

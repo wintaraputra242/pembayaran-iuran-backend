@@ -260,7 +260,7 @@ class LaporanController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::id(),
+                'id_user'            => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
                 'action'             => $action,
                 'description'        => $description,

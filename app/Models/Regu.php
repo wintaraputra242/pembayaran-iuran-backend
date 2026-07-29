@@ -30,5 +30,5 @@ class Regu extends Model
     {
         return $this->hasMany(AnggotaRegu::class, 'id_regu')
             ->where('status_keaktifan', 'aktif');
-    }
+    }   
 }

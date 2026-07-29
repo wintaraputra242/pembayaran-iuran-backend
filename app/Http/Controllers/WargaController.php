@@ -20,6 +20,7 @@ use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Illuminate\Support\Str;
 
 class WargaController extends Controller
 {
@@ -68,10 +69,16 @@ class WargaController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'nik' => 'required|digits:16|unique:warga,nik',
+            'nik'        => 'required|digits:16|unique:warga,nik',
             'nama_warga' => 'required|string|max:100',
             'alamat'     => 'required|string',
-            'no_hp'      => 'required|string|max:20',
+            'no_hp'      => [
+                'required',
+                'string',
+                'max:20',
+                'unique:warga,no_hp',   // ← unique di warga
+                'unique:users,no_hp',   // ← unique di users
+            ],
         ], [
             'nik.required'        => 'NIK wajib diisi.',
             'nik.digits'   => 'NIK harus tepat 16 digit angka.',
@@ -84,6 +91,7 @@ class WargaController extends Controller
             'no_hp.required'      => 'Nomor HP wajib diisi.',
             'no_hp.string'        => 'Nomor HP harus berupa teks.',
             'no_hp.max'           => 'Nomor HP maksimal 20 karakter.',
+            'no_hp.unique' => 'Nomor HP sudah digunakan oleh warga lain.',
         ]);
 
         if ($validator->fails()) {
@@ -96,6 +104,7 @@ class WargaController extends Controller
             $user = User::create([
                 'name'      => $validator->validated()['nama_warga'],
                 'username'  => $request->nik,
+                'no_hp'     => $request->no_hp, // ← tambah
                 'password'  => null,
                 'role'      => 'warga',
                 'is_active' => true,
@@ -129,24 +138,50 @@ class WargaController extends Controller
         $validator = Validator::make($request->all(), [
             'nama_warga' => 'sometimes|required|string|max:100',
             'alamat'     => 'sometimes|required|string',
-            'no_hp'      => 'nullable|string|max:20',
+            'no_hp'      => [
+                'nullable',
+                'string',
+                'max:20',
+                // Unique tapi ignore warga ini sendiri
+                Rule::unique('warga', 'no_hp')->ignore($nik, 'nik'),
+                Rule::unique('users', 'no_hp')->ignore($warga->id_user),
+            ],
         ], [
             'nama_warga.required' => 'Nama warga wajib diisi.',
             'nama_warga.max'      => 'Nama warga maksimal 100 karakter.',
             'alamat.required'     => 'Alamat wajib diisi.',
             'no_hp.max'           => 'Nomor HP maksimal 20 karakter.',
+            'no_hp.unique'        => 'Nomor HP sudah digunakan oleh warga lain.',
         ]);
 
         if ($validator->fails()) {
             return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
         }
 
-        $warga->update($validator->validated());
+        DB::beginTransaction();
 
-        $this->writeLog('update', "Memperbarui data warga NIK {$warga->nik}", $request);
+        try {
+            $warga->update($validator->validated());
 
-        return ApiResponse::success(null, 'Data warga berhasil diperbarui.');
+            // Sinkronkan ke tabel users
+            if ($warga->user) {
+                $warga->user->update([
+                    'name'  => $request->nama_warga ?? $warga->nama_warga,
+                    'no_hp' => $request->no_hp,
+                ]);
+            }
+
+            DB::commit();
+
+            $this->writeLog('update', "Memperbarui data warga NIK {$warga->nik}", $request);
+
+            return ApiResponse::success(null, 'Data warga berhasil diperbarui.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
+        }
     }
+
 
     public function destroy(Request $request, string $nik): JsonResponse
     {
@@ -207,12 +242,20 @@ class WargaController extends Controller
 
         $statusBaru = $request->status_keaktifan;
 
-
         if ($warga->trashed() && $statusBaru === 'aktif') {
             $warga->restore();
         }
 
         $warga->status_keaktifan = $statusBaru;
+
+        // Set tanggal_nonaktif otomatis
+        if ($statusBaru === 'tidak_aktif') {
+            $warga->tanggal_nonaktif = now()->toDateString();
+        } else {
+            // Reset tanggal_nonaktif kalau diaktifkan kembali
+            $warga->tanggal_nonaktif = null;
+        }
+
         $warga->save();
 
         $this->writeLog(
@@ -229,8 +272,6 @@ class WargaController extends Controller
         $request->validate([
             'file' => 'required|mimes:xlsx,xls,csv|max:5120',
         ]);
-
-        DB::beginTransaction();
 
         try {
             $rows = FacadesExcel::toArray([], $request->file('file'));
@@ -270,41 +311,51 @@ class WargaController extends Controller
                     continue;
                 }
 
-                if (Warga::withTrashed()->where('nik', $nik)->exists()) {
+                // Cek duplikat di kedua tabel: warga (nik) DAN users (username)
+                $existsInWarga = Warga::withTrashed()->where('nik', $nik)->exists();
+                $existsInUsers = User::withTrashed()->where('username', $nik)->exists();
+
+                if ($existsInWarga || $existsInUsers) {
                     $skipped++;
                     $errors[] = "Baris {$lineNum}: NIK '{$nik}' sudah terdaftar, dilewati.";
                     continue;
                 }
 
-                // Buat user terlebih dahulu
-                $user = User::create([
-                    'name'      => $nama,
-                    'username'  => $nik,
-                    'password'  => null,
-                    'role'      => 'warga',
-                    'is_active' => true,
-                ]);
+                // Transaksi per baris — kalau baris ini gagal, hanya baris ini yang di-rollback,
+                // baris lain yang sudah berhasil tetap tersimpan.
+                try {
+                    DB::transaction(function () use ($nik, $nama, $alamat, $hp) {
+                        $user = User::create([
+                            'name'      => Str::upper($nama),
+                            'username'  => $nik,
+                            'password'  => null,
+                            'role'      => 'warga',
+                            'is_active' => true,
+                        ]);
 
-                Warga::create([
-                    'nik'              => $nik,
-                    'nama_warga'       => $nama,
-                    'alamat'           => $alamat ?: '-',
-                    'no_hp'            => $hp ?: null,
-                    'id_user'          => $user->id,
-                    'status_keaktifan' => 'aktif',
-                ]);
+                        Warga::create([
+                            'nik'              => $nik,
+                            'nama_warga'       => Str::upper($nama),
+                            'alamat'           => $alamat ?: '-',
+                            'no_hp'            => $hp ?: null,
+                            'id_user'          => $user->id,
+                            'status_keaktifan' => 'aktif',
+                        ]);
+                    });
 
-                $inserted++;
+                    $inserted++;
+                } catch (\Throwable $e) {
+                    $skipped++;
+                    $errors[] = "Baris {$lineNum}: Gagal disimpan, NIK '{$nik}' kemungkinan sudah terpakai atau terjadi kesalahan lain.";
+                    continue;
+                }
             }
-
 
             $this->writeLog(
                 'import',
                 "Import Excel warga. Berhasil: {$inserted}, dilewati: {$skipped}",
                 $request
             );
-
-            DB::commit();
 
             return ApiResponse::success(
                 [
@@ -315,7 +366,6 @@ class WargaController extends Controller
                 "Import selesai. {$inserted} data berhasil ditambahkan, {$skipped} dilewati."
             );
         } catch (\Throwable $e) {
-            DB::rollBack();
             return ApiResponse::error('Terjadi kesalahan saat import.', $e->getMessage(), 500);
         }
     }
@@ -369,7 +419,7 @@ class WargaController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::id(),
+                'id_user'            => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
                 'action'             => $action,
                 'description'        => $description,

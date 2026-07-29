@@ -14,40 +14,41 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
 
-    public function checkNik(Request $request): JsonResponse
+    public function checkNik(Request $request)
     {
         $request->validate([
-            'nik' => 'required|digits:16',
+            'nik' => 'required|string',
         ]);
 
-        $user = User::where('username', $request->nik)->first();
+        $input = $request->nik;
+
+        // Cari by username (NIK) atau no_hp
+        $user = User::where('username', $input)
+            ->orWhere('no_hp', $input)
+            ->first();
 
         if (!$user) {
-            return ApiResponse::error('NIK tidak ditemukan.', null, 404);
-        }
-
-        if (!$user->is_active) {
-            return ApiResponse::error('Akun Anda telah dinonaktifkan. Hubungi administrator.', null, 403);
+            return ApiResponse::error('NIK atau nomor HP tidak ditemukan.', null, 404);
         }
 
         return ApiResponse::success([
             'has_password' => !is_null($user->password),
-        ], 'OK.');
+        ], 'Berhasil.');
     }
 
 
     public function login(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'nik'      => 'required|digits:16',
+            'nik'      => 'required|string',
             'password' => 'required|string|min:6',
         ], [
-            'nik.required'      => 'NIK wajib diisi.',
-            'nik.digits'        => 'NIK harus tepat 16 digit angka.',
+            'nik.required'      => 'NIK / No. Handphone wajib diisi.',
             'password.required' => 'Password wajib diisi.',
             'password.min'      => 'Password minimal 6 karakter.',
         ]);
@@ -56,10 +57,13 @@ class AuthController extends Controller
             return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
         }
 
-        $user = User::where('username', $request->nik)->first();
+        // Cari by username (NIK) atau no_hp
+        $user = User::where('username', $request->nik)
+            ->orWhere('no_hp', $request->nik)
+            ->first();
 
         if (!$user) {
-            return ApiResponse::error('NIK tidak ditemukan.', null, 404);
+            return ApiResponse::error('NIK atau nomor HP tidak ditemukan.', null, 404);
         }
 
         if (!$user->is_active) {
@@ -71,7 +75,7 @@ class AuthController extends Controller
             $user->save();
         } else {
             if (!Hash::check($request->password, $user->password)) {
-                return ApiResponse::error('Login gagal.', 'Password salah.', 401);
+                return ApiResponse::error('Login gagal, password salah.', 'Password salah.', 401);
             }
         }
 
@@ -136,7 +140,14 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'nama_warga' => 'sometimes|required|string|max:100',
             'alamat'     => 'sometimes|required|string',
-            'no_hp'      => 'sometimes|required|string|max:20',
+            'no_hp'      => [
+                'sometimes',
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('warga', 'no_hp')->ignore($warga?->nik, 'nik'),
+                Rule::unique('users', 'no_hp')->ignore($user->id),
+            ],
             'password'   => 'nullable|string|min:6|confirmed',
         ], [
             'nama_warga.required'  => 'Nama wajib diisi.',
@@ -144,6 +155,7 @@ class AuthController extends Controller
             'alamat.required'      => 'Alamat wajib diisi.',
             'no_hp.required'       => 'Nomor HP wajib diisi.',
             'no_hp.max'            => 'Nomor HP maksimal 20 karakter.',
+            'no_hp.unique'         => 'Nomor HP sudah digunakan oleh warga lain.',
             'password.min'         => 'Password minimal 6 karakter.',
             'password.confirmed'   => 'Konfirmasi password tidak cocok.',
         ]);
@@ -164,6 +176,10 @@ class AuthController extends Controller
 
                 if ($request->filled('nama_warga')) {
                     $user->name = $request->nama_warga;
+                }
+
+                if ($request->filled('no_hp')) {
+                    $user->no_hp = $request->no_hp;
                 }
             }
 
@@ -187,7 +203,7 @@ class AuthController extends Controller
     }
 
 
-    private function formatProfile(User $user): array
+    private function formatProfile($user)
     {
         return [
             'id'       => $user->id,
@@ -200,6 +216,13 @@ class AuthController extends Controller
                 'alamat'           => $user->warga->alamat,
                 'no_hp'            => $user->warga->no_hp,
                 'status_keaktifan' => $user->warga->status_keaktifan,
+                'regu'             => $user->warga->anggotaRegu()
+                    ->whereNull('deleted_at')
+                    ->where('status_keaktifan', 'aktif')
+                    ->with('regu:id,nama_regu')
+                    ->first()
+                    ?->regu
+                    ?->only(['id', 'nama_regu']),
             ] : null,
         ];
     }

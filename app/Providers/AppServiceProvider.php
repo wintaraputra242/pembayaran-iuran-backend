@@ -28,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Carbon\Carbon::setLocale('id');
+        
         User::observe(UserObserver::class);
         Regu::observe(ReguObserver::class);
         Warga::observe(WargaObserver::class);

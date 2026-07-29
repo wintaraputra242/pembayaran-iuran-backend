@@ -25,6 +25,7 @@ class Warga extends Model
         'alamat',
         'no_hp',
         'status_keaktifan',
+        'tanggal_nonaktif', // ← tambah ini
     ];
 
     public function user(): BelongsTo

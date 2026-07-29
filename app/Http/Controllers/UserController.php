@@ -112,7 +112,7 @@ class UserController extends Controller
         }
 
         $this->writeLog(
-            Auth::id(),
+            Auth::user()?->id,
             Auth::user()?->name,
             'update',
             "Update data user ID {$user->id} ({$user->username})",
@@ -133,7 +133,7 @@ class UserController extends Controller
             return ApiResponse::error('Not Found', 'User tidak ditemukan.', 404);
         }
 
-        if ($user->id === Auth::id()) {
+        if ($user->id === Auth::user()?->id) {
             return ApiResponse::error('Forbidden', 'Tidak dapat menghapus akun yang sedang digunakan.', 403);
         }
 
@@ -142,7 +142,7 @@ class UserController extends Controller
         $user->delete();
 
         $this->writeLog(
-            Auth::id(),
+            Auth::user()?->id,
             Auth::user()?->name,
             'delete',
             "Soft delete user ID {$user->id} ({$user->username})",
@@ -160,7 +160,7 @@ class UserController extends Controller
             return ApiResponse::error('Not Found', 'User tidak ditemukan.', 404);
         }
 
-        if ($user->id === Auth::id()) {
+        if ($user->id === Auth::user()?->id) {
             return ApiResponse::error('Forbidden', 'Tidak dapat menonaktifkan akun yang sedang digunakan.', 403);
         }
 
@@ -174,7 +174,7 @@ class UserController extends Controller
         $status = $user->is_active ? 'diaktifkan' : 'dinonaktifkan';
 
         $this->writeLog(
-            Auth::id(),
+            Auth::user()?->id,
             Auth::user()?->name,
             'update',
             "User ID {$user->id} ({$user->username}) {$status}",
@@ -228,7 +228,7 @@ class UserController extends Controller
         })->toArray();
 
         $this->writeLog(
-            Auth::id(),
+            Auth::user()?->id,
             Auth::user()?->name,
             'download',
             'Mengunduh PDF kredensial akun regu',

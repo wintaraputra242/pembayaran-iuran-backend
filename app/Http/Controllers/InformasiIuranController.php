@@ -17,7 +17,7 @@ class InformasiIuranController extends Controller
 {
     public function index(Request $request)
     {
-        $query = InformasiIuran::withTrashed()->with([
+        $query = InformasiIuran::query()->with([
             'penanggungJawab:nik,nama_warga',
         ]);
 
@@ -41,6 +41,10 @@ class InformasiIuranController extends Controller
             $query->where('jenis_iuran', $request->jenis_iuran);
         }
 
+        if ($request->boolean('include_deleted')) {
+            $query->withTrashed();
+        }
+
         $sortBy  = $request->query('sort_by');
         $sortDir = $request->query('sort_dir', 'asc');
 
@@ -50,10 +54,10 @@ class InformasiIuranController extends Controller
             if (in_array($sortBy, $validColumns)) {
                 $query->orderBy($sortBy, strtolower($sortDir) === 'desc' ? 'desc' : 'asc');
             } else {
-                $query->orderBy('created_at', 'desc');
+                $query->orderByRaw('deleted_at IS NOT NULL ASC')->orderBy('created_at', 'desc');
             }
         } else {
-            $query->orderBy('created_at', 'desc');
+            $query->orderByRaw('deleted_at IS NOT NULL ASC')->orderBy('created_at', 'desc');
         }
 
         $mode = $request->query('mode', 'client');
@@ -151,6 +155,9 @@ class InformasiIuranController extends Controller
 
         $iuran = InformasiIuran::create($data);
 
+        app(\App\Services\IuranNotificationService::class)
+            ->notifikasiIuranBaru($iuran);
+
         $this->writeLog(
             'create',
             'Menambahkan informasi iuran "' . $iuran->judul_iuran . '" dengan jenis "' . $iuran->jenis_iuran . '".',
@@ -247,10 +254,14 @@ class InformasiIuranController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        $iuran = InformasiIuran::find($id);
+        $iuran = InformasiIuran::withTrashed()->find($id);
 
         if (!$iuran) {
             return ApiResponse::error('Informasi iuran tidak ditemukan.', null, 404);
+        }
+
+        if ($iuran->trashed()) {
+            return ApiResponse::error('Data informasi iuran sudah dihapus sebelumnya.', null, 422);
         }
 
         $pembayaranExists = Pembayaran::where('id_informasi_iuran', $id)->exists();
@@ -270,7 +281,7 @@ class InformasiIuranController extends Controller
             $request
         );
 
-        return ApiResponse::success(null, 'Untuk sementara, data informasi iuran berhasil dinonaktifkan. Setelah 1 bulan berlalu, data informasi iuran baru benar-benar dihapus.');
+        return ApiResponse::success(null, 'Data informasi iuran berhasil dihapus.');
     }
 
     public function updateStatus(Request $request, $id)
@@ -345,14 +356,16 @@ class InformasiIuranController extends Controller
     private function writeLog(string $action, string $description, Request $request): void
     {
         try {
-            ActivityLog::create([
-                'id_user'            => Auth::id(),
+            $test = ActivityLog::create([
+                'id_user'            => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
                 'action'             => $action,
                 'description'        => $description,
                 'ip_address'         => $request->ip(),
                 'user_agent'         => $request->userAgent(),
             ]);
+            
+            Log::warning($test);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");
         }

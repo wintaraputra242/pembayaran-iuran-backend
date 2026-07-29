@@ -32,7 +32,8 @@ class DropdownController extends Controller
                 $query->select(DB::raw(1))
                     ->from('anggota_regu')
                     ->whereColumn('anggota_regu.nik', 'warga.nik')
-                    ->whereNull('anggota_regu.deleted_at');
+                    ->whereNull('anggota_regu.deleted_at')
+                    ->where('anggota_regu.status_keaktifan', 'aktif');
             })
             ->orderBy('nama_warga')
             ->get();
@@ -42,7 +43,7 @@ class DropdownController extends Controller
 
     public function getDropdownInformasiIuran()
     {
-        $informasiIuran = InformasiIuran::select('id', 'judul_iuran', 'jenis_iuran', 'jumlah_iuran')
+        $informasiIuran = InformasiIuran::select('id', 'judul_iuran', 'jenis_iuran', 'jumlah_iuran', 'periode')
             ->orderBy('judul_iuran')
             ->get();
 
@@ -131,7 +132,6 @@ class DropdownController extends Controller
 
                 return true;
             })
-            ->sortBy('nama_warga')
             ->map(function ($warga) {
                 $anggotaAktif = $warga->anggotaRegu
                     ->whereNull('deleted_at')
@@ -152,13 +152,29 @@ class DropdownController extends Controller
                     ->values()
                     ->toArray();
 
+                $namaRegu = $anggotaAktif->regu->nama_regu ?? null;
+
                 return [
                     'nik'                 => $warga->nik,
                     'nama_warga'          => $warga->nama_warga,
-                    'regu'                => $anggotaAktif->regu->nama_regu ?? null,
+                    'regu'                => $namaRegu,
                     'regu_id'             => $anggotaAktif->regu->id ?? null,
                     'bulan_sudah_dibayar' => $bulanSudahDibayar,
+                    // Helper key khusus untuk sorting, dibuang sebelum dikirim ke response
+                    '_tanpa_regu'         => $namaRegu === null ? 1 : 0,
+                    '_regu_sort'          => $namaRegu ?? '',
                 ];
+            })
+            // sortBy dengan array butuh string key (bukan closure) di posisi pertama tiap comparison,
+            // jadi kita pakai helper key yang sudah disiapkan di atas.
+            ->sortBy([
+                ['_tanpa_regu', 'asc'],
+                ['_regu_sort', 'asc'],
+                ['nama_warga', 'asc'],
+            ])
+            ->map(function ($item) {
+                unset($item['_tanpa_regu'], $item['_regu_sort']);
+                return $item;
             })
             ->values();
 

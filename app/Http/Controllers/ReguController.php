@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\ApiResponse;
 use App\Models\ActivityLog;
+use App\Models\AnggotaRegu;
 use App\Models\Regu;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -48,11 +49,11 @@ class ReguController extends Controller
     public function show(int $id): JsonResponse
     {
         $regu = Regu::with([
-                    'ketuaRegu:id,name,username,is_active',
-                    'anggotaRegu.warga:nik,nama_warga,no_hp',
-                ])
-                ->withTrashed()
-                ->find($id);
+            'ketuaRegu:id,name,username,is_active',
+            'anggotaRegu.warga:nik,nama_warga,no_hp',
+        ])
+            ->withTrashed()
+            ->find($id);
 
         if (!$regu) {
             return ApiResponse::error('Data regu tidak ditemukan.', null, 404);
@@ -64,7 +65,12 @@ class ReguController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'nama_regu' => 'required|string|max:100|unique:regu,nama_regu',
+            'nama_regu' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('regu', 'nama_regu')->whereNull('deleted_at'),
+            ],
         ], [
             'nama_regu.required' => 'Nama regu wajib diisi.',
             'nama_regu.string'   => 'Nama regu harus berupa teks.',
@@ -109,7 +115,6 @@ class ReguController extends Controller
             DB::commit();
 
             return ApiResponse::success(null, 'Regu beserta akunnya berhasil dibuat.', 201);
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
@@ -126,7 +131,9 @@ class ReguController extends Controller
 
         $validator = Validator::make($request->all(), [
             'nama_regu' => [
-                'required', 'string', 'max:100',
+                'required',
+                'string',
+                'max:100',
                 Rule::unique('regu', 'nama_regu')->ignore($regu->id),
             ],
         ], [
@@ -176,7 +183,6 @@ class ReguController extends Controller
                 $regu->load('ketuaRegu:id,name,username'),
                 'Data regu, akun, dan password berhasil diperbarui.'
             );
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
@@ -198,7 +204,7 @@ class ReguController extends Controller
                 $user = User::find($regu->id_user);
                 if ($user) {
                     $user->tokens()->delete();
-                    $user->update(['is_active' => false]);
+                    $user->forceDelete();
                 }
             }
 
@@ -216,7 +222,6 @@ class ReguController extends Controller
             DB::commit();
 
             return ApiResponse::success(null, 'Regu berhasil dinonaktifkan beserta seluruh anggotanya.');
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
@@ -239,6 +244,7 @@ class ReguController extends Controller
         $regu = Regu::withTrashed()->find($id);
 
         if (!$regu) {
+            return ApiResponse::error('Data tidak ditemukan.', 'Regu tidak ditemukan.', 404);
         }
 
         $statusBaru = $request->status_keaktifan;
@@ -267,6 +273,13 @@ class ReguController extends Controller
                 }
             }
 
+            // Cascade: ikutkan status keanggotaan di tabel pivot anggota_regu.
+            // Tidak menyentuh Warga::status_keaktifan karena kolom itu adalah
+            // status aktif warga secara umum di sistem, bukan soal regu.
+            AnggotaRegu::where('id_regu', $regu->id)
+                ->whereNull('deleted_at')
+                ->update(['status_keaktifan' => $statusBaru]);
+
             $this->writeLog(
                 'update',
                 "Mengubah status regu \"{$regu->nama_regu}\" menjadi {$statusBaru}.",
@@ -276,7 +289,6 @@ class ReguController extends Controller
             DB::commit();
 
             return ApiResponse::success(null, 'Status keaktifan berhasil diperbarui.');
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
@@ -310,7 +322,7 @@ class ReguController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::id(),
+                'id_user'            => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
                 'action'             => $action,
                 'description'        => $description,

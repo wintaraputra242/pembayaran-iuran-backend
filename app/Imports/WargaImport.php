@@ -6,6 +6,7 @@ use App\Models\Warga;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class WargaImport implements ToCollection, WithHeadingRow
 {
@@ -21,9 +22,10 @@ class WargaImport implements ToCollection, WithHeadingRow
                 continue;
             }
 
+
             Warga::create([
                 'nik'              => $row['nik'],
-                'nama_warga'       => $row['nama_warga'],
+                'nama_warga'       => Str::upper($row['nama_warga']),
                 'alamat'           => $row['alamat'] ?? '',
                 'hp'               => $row['hp'] ?? '',
                 'id_user'          => null,

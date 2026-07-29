@@ -15,7 +15,15 @@ class User extends Authenticatable
 
     protected $table = 'users';
 
-    protected $fillable = ['name', 'username', 'password', 'role', 'is_active'];
+    protected $fillable = [
+        'name',
+        'username',
+        'no_hp',      // ← tambah
+        'password',
+        'role',
+        'is_active'
+    ];
+
     protected $hidden   = ['password', 'deleted_at'];
 
     public function warga(): HasOne

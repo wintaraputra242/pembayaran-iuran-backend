@@ -206,6 +206,8 @@ class PembayaranController extends Controller
             'metode_bayar'          => $pembayaran->metode_bayar,
             'status_bayar'          => $pembayaran->status_bayar,
             'note'                  => $pembayaran->note,
+            'rejection_reason'     => $pembayaran->rejection_reason,
+            'bukti_bayar'           => asset('storage/' . $pembayaran->bukti_pembayaran),
             'created_at'            => $pembayaran->created_at,
         ]);
 
@@ -228,7 +230,7 @@ class PembayaranController extends Controller
         $result = $iuranBulanan->map(function ($iuran) use ($warga) {
             $pembayaran = Pembayaran::where('nik', $warga->nik)
                 ->where('id_informasi_iuran', $iuran->id)
-                ->where('status_bayar', 'paid')
+                ->whereIn('status_bayar', ['approved', 'pending'])
                 ->get();
 
             $bulanSudahBayar = $pembayaran
@@ -251,12 +253,11 @@ class PembayaranController extends Controller
         return ApiResponse::success($result, 'Data bulan yang sudah dibayar berhasil diambil.');
     }
 
-
     private function writeLog(string $action, string $description, Request $request): void
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::user()->id,
+                'id_user'            => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
                 'action'             => $action,
                 'description'        => $description,
@@ -293,9 +294,12 @@ class PembayaranController extends Controller
             foreach ($targets as $target) {
                 $fcmTokens = $target->devices->pluck('fcm_token')->filter()->values()->toArray();
 
-                if (empty($fcmTokens)) continue;
-
-                $this->sendFcmNotification($fcmTokens, $title, $body);
+                // Kirim push kalau ada device — tapi TIDAK "continue"/skip
+                // seluruh proses kalau tidak ada. Riwayat notif in-app tetap
+                // harus tersimpan supaya bisa dilihat kapan pun target buka app.
+                if (!empty($fcmTokens)) {
+                    $this->sendFcmNotification($fcmTokens, $title, $body);
+                }
 
                 Notification::create([
                     'user_id' => $target->id,

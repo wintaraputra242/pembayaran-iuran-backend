@@ -39,7 +39,7 @@ class ActivityLogController extends Controller
         }
 
         $data = $query
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'desc')
             ->paginate($request->get('per_page', 10));
 
         return ApiResponse::success($data, 'Data aktivitas berhasil diambil.');
