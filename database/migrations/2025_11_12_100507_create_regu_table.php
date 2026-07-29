@@ -6,24 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('regu', function (Blueprint $table) {
-            $table->id('id_regu');
+            $table->id();
             $table->string('nama_regu');
-            $table->unsignedBigInteger('id_ketua')->nullable();;
+            $table->enum('status_keaktifan', ['aktif', 'tidak_aktif'])->default('aktif');
+            $table->foreignId('id_user')
+                  ->nullable()
+                  ->constrained('users')
+                  ->nullOnDelete();
             $table->timestamps();
-
-            $table->foreign('id_ketua')->references('id_user')->on('users')->onDelete('set null');
+            $table->softDeletes();
         });
+
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('regu');
