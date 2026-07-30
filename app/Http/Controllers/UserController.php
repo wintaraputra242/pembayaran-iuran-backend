@@ -191,7 +191,10 @@ class UserController extends Controller
     {
         $passwordPath = 'credentials/passwords.json';
 
-        if (!Storage::exists($passwordPath)) {
+        // Eksplisit pakai disk 'local' (storage/app/private) — JANGAN pakai
+        // Storage:: default, karena FILESYSTEM_DISK di .env production
+        // adalah 'public', yang salah tempat untuk file sensitif seperti ini.
+        if (!Storage::disk('local')->exists($passwordPath)) {
             return ApiResponse::error(
                 'File tidak ditemukan.',
                 'Data password belum tersedia.',
@@ -199,7 +202,7 @@ class UserController extends Controller
             );
         }
 
-        $raw = Storage::get($passwordPath);
+        $raw = Storage::disk('local')->get($passwordPath);
         $passwords = json_decode($raw, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
@@ -215,8 +218,6 @@ class UserController extends Controller
             ->orderBy('id')
             ->get();
 
-        // Guard: belum ada data regu sama sekali — jangan lanjut generate PDF,
-        // langsung kasih pesan yang jelas ke user.
         if ($reguList->isEmpty()) {
             return ApiResponse::error(
                 'Data regu belum tersedia.',
