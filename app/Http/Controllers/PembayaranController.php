@@ -116,7 +116,7 @@ class PembayaranController extends Controller
             'bulan'              => 'nullable|array',
             'bulan.*'            => 'integer|min:1|max:12',
             'metode_bayar'       => 'required|in:tunai,transfer,qris',
-            'bukti_pembayaran'   => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'bukti_pembayaran'   => 'nullable|image|mimes:jpg,jpeg,png|max:5000',
             'note'               => 'nullable|string|max:500',
         ], [
             'nik.required'                => 'NIK wajib diisi.',
@@ -136,7 +136,7 @@ class PembayaranController extends Controller
             'metode_bayar.in'             => 'Metode bayar harus salah satu dari: tunai, transfer, atau qris.',
             'bukti_pembayaran.image'      => 'Bukti pembayaran harus berupa gambar.',
             'bukti_pembayaran.mimes'      => 'Bukti pembayaran harus berformat jpg, jpeg, atau png.',
-            'bukti_pembayaran.max'        => 'Ukuran bukti pembayaran maksimal 2MB.',
+            'bukti_pembayaran.max'        => 'Ukuran bukti pembayaran maksimal 5MB.',
             'note.max'                    => 'Catatan maksimal 500 karakter.',
         ]);
 
