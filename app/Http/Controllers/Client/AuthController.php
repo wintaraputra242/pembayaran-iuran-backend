@@ -25,11 +25,22 @@ class AuthController extends Controller
             'nik' => 'required|string',
         ]);
 
-        $input = $request->nik;
+        $input = trim($request->nik);
 
-        // Cari by username (NIK) atau no_hp
-        $user = User::where('username', $input)
-            ->orWhere('no_hp', $input)
+        // Hanya izinkan format NIK (16 digit angka) atau nomor HP (08xxxxxxxxxx / 62xxxxxxxxxx)
+        $isNik   = preg_match('/^\d{16}$/', $input);
+        $isNoHp  = preg_match('/^(0|62)8[0-9]{8,12}$/', $input);
+
+        if (!$isNik && !$isNoHp) {
+            return ApiResponse::error('NIK atau nomor HP tidak ditemukan.', null, 422);
+        }
+
+        // Cari hanya di kalangan warga (bukan admin/staff)
+        $user = User::where(function ($query) use ($input) {
+            $query->where('username', $input)
+                ->orWhere('no_hp', $input);
+        })
+            ->where('role', '!=', 'admin') // sesuaikan dengan struktur role di sistem Anda
             ->first();
 
         if (!$user) {
