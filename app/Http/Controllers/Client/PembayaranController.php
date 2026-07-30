@@ -38,7 +38,7 @@ class PembayaranController extends Controller
             'bulan'              => 'nullable|array',
             'bulan.*'            => 'integer|min:1|max:12',
             'metode_bayar'       => 'required|in:transfer,qris',
-            'bukti_pembayaran'   => 'required|image|mimes:jpg,jpeg,png|max:2048',
+            'bukti_pembayaran'   => 'required|image|mimes:jpg,jpeg,png|max:5000',
             'note'               => 'nullable|string|max:500',
         ], [
             'id_informasi_iuran.required' => 'Informasi iuran wajib dipilih.',
@@ -52,7 +52,7 @@ class PembayaranController extends Controller
             'bukti_pembayaran.required'   => 'Bukti pembayaran wajib diunggah.',
             'bukti_pembayaran.image'      => 'Bukti pembayaran harus berupa gambar.',
             'bukti_pembayaran.mimes'      => 'Bukti pembayaran harus berformat jpg, jpeg, atau png.',
-            'bukti_pembayaran.max'        => 'Ukuran bukti pembayaran maksimal 2MB.',
+            'bukti_pembayaran.max'        => 'Ukuran bukti pembayaran maksimal 5MB.',
             'note.max'                    => 'Catatan maksimal 500 karakter.',
         ]);
 
