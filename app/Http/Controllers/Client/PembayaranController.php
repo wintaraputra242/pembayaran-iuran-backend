@@ -161,7 +161,10 @@ class PembayaranController extends Controller
         $perPage = $request->get('per_page', 10);
 
         $query = Pembayaran::where('nik', $warga->nik)
-            ->with(['informasiIuran:id,judul_iuran,jenis_iuran'])
+            ->with([
+                'informasiIuran:id,judul_iuran,jenis_iuran',
+                'diprosesoleh:id,name,role',
+            ])
             ->latest();
 
         if ($request->filled('status_bayar')) {
@@ -194,22 +197,38 @@ class PembayaranController extends Controller
 
         $data = $query->paginate($perPage);
 
-        $data->getCollection()->transform(fn($pembayaran) => [
-            'id'                    => $pembayaran->id,
-            'transaction_id'        => $pembayaran->transaction_id,
-            'judul_iuran'           => $pembayaran->informasiIuran?->judul_iuran,
-            'jenis_iuran'           => $pembayaran->informasiIuran?->jenis_iuran,
-            'jumlah_iuran_snapshot' => $pembayaran->jumlah_iuran_snapshot,
-            'total_bayar'           => $pembayaran->total_bayar,
-            'bulan'                 => $pembayaran->bulan,
-            'tanggal_bayar'         => $pembayaran->tanggal_bayar,
-            'metode_bayar'          => $pembayaran->metode_bayar,
-            'status_bayar'          => $pembayaran->status_bayar,
-            'note'                  => $pembayaran->note,
-            'rejection_reason'     => $pembayaran->rejection_reason,
-            'bukti_bayar'           => asset('storage/' . $pembayaran->bukti_pembayaran),
-            'created_at'            => $pembayaran->created_at,
-        ]);
+        $data->getCollection()->transform(function ($pembayaran) {
+            // processed_by hanya terisi kalau pembayaran ini ditambahkan
+            // manual oleh admin/ketua regu. Kalau warga submit sendiri
+            // lewat app, processed_by tetap null — tidak perlu keterangan.
+            $diinputOleh = null;
+
+            if ($pembayaran->diprosesoleh) {
+                $diinputOleh = match ($pembayaran->diprosesoleh->role) {
+                    'admin'      => 'Diinput oleh Pengurus',
+                    'ketua_regu' => 'Diinput oleh Ketua Regu',
+                    default      => 'Diinput oleh ' . $pembayaran->diprosesoleh->name,
+                };
+            }
+
+            return [
+                'id'                    => $pembayaran->id,
+                'transaction_id'        => $pembayaran->transaction_id,
+                'judul_iuran'           => $pembayaran->informasiIuran?->judul_iuran,
+                'jenis_iuran'           => $pembayaran->informasiIuran?->jenis_iuran,
+                'jumlah_iuran_snapshot' => $pembayaran->jumlah_iuran_snapshot,
+                'total_bayar'           => $pembayaran->total_bayar,
+                'bulan'                 => $pembayaran->bulan,
+                'tanggal_bayar'         => $pembayaran->tanggal_bayar,
+                'metode_bayar'          => $pembayaran->metode_bayar,
+                'status_bayar'          => $pembayaran->status_bayar,
+                'note'                  => $pembayaran->note,
+                'rejection_reason'      => $pembayaran->rejection_reason,
+                'bukti_bayar'           => asset('storage/' . $pembayaran->bukti_pembayaran),
+                'diinput_oleh'          => $diinputOleh,
+                'created_at'            => $pembayaran->created_at,
+            ];
+        });
 
         return ApiResponse::success($data, 'Riwayat pembayaran berhasil diambil.');
     }
