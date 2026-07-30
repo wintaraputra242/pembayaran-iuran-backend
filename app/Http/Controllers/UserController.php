@@ -215,6 +215,16 @@ class UserController extends Controller
             ->orderBy('id')
             ->get();
 
+        // Guard: belum ada data regu sama sekali — jangan lanjut generate PDF,
+        // langsung kasih pesan yang jelas ke user.
+        if ($reguList->isEmpty()) {
+            return ApiResponse::error(
+                'Data regu belum tersedia.',
+                'Belum ada data regu yang terdaftar, sehingga PDF kredensial tidak dapat dibuat.',
+                404
+            );
+        }
+
         $rows = $reguList->map(function ($regu, $index) use ($passwords) {
             $key = 'regu_' . $regu->id;
 
@@ -227,6 +237,19 @@ class UserController extends Controller
             ];
         })->toArray();
 
+        try {
+            $pdf = Pdf::loadView('pdf.credential-global-table', ['rows' => $rows]);
+            $output = $pdf->download('credential-regu.pdf');
+        } catch (\Throwable $e) {
+            Log::error('Gagal generate PDF kredensial regu: ' . $e->getMessage());
+
+            return ApiResponse::error(
+                'Gagal membuat PDF.',
+                'Terjadi kesalahan saat membuat file PDF kredensial. Silakan coba lagi.',
+                500
+            );
+        }
+
         $this->writeLog(
             Auth::user()?->id,
             Auth::user()?->name,
@@ -235,9 +258,7 @@ class UserController extends Controller
             $request
         );
 
-        $pdf = Pdf::loadView('pdf.credential-global-table', ['rows' => $rows]);
-
-        return $pdf->download('credential-regu.pdf');
+        return $output;
     }
 
     private function writeLog(
