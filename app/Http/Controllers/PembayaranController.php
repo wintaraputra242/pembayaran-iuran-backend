@@ -504,18 +504,38 @@ class PembayaranController extends Controller
             'nik.exists'                  => 'NIK tidak ditemukan atau tidak terdaftar sebagai warga.',
         ]);
 
-        $paidMonths = Pembayaran::where('id_informasi_iuran', $request->id_informasi_iuran)
+        $warga = Warga::find($request->nik);
+        $iuran = InformasiIuran::find($request->id_informasi_iuran);
+
+        $semuaPembayaran = Pembayaran::where('id_informasi_iuran', $request->id_informasi_iuran)
             ->where('nik', $request->nik)
-            ->whereIn('status_bayar', ['approved', 'pending'])
-            ->pluck('bulan')
-            ->flatten()
-            ->unique()
-            ->sort()
-            ->values();
+            ->get();
 
-        return ApiResponse::success($paidMonths, 'Data bulan yang sudah dibayar berhasil diambil.');
+        $priority = ['approved' => 3, 'pending' => 2, 'rejected' => 1, 'cancelled' => 1];
+
+        $statusPerBulan = $semuaPembayaran
+            ->groupBy('bulan')
+            ->map(function ($records) use ($priority) {
+                return $records->sortByDesc(fn($p) => $priority[$p->status_bayar] ?? 0)->first()->status_bayar;
+            });
+
+        $bulanApproved  = $statusPerBulan->filter(fn($s) => $s === 'approved')->keys()->sort()->values();
+        $bulanPending   = $statusPerBulan->filter(fn($s) => $s === 'pending')->keys()->sort()->values();
+        $bulanRejected  = $statusPerBulan->filter(fn($s) => $s === 'rejected')->keys()->sort()->values();
+        $bulanCancelled = $statusPerBulan->filter(fn($s) => $s === 'cancelled')->keys()->sort()->values();
+
+        [$bulanMulai, $bulanMaksimal] = $warga->hitungRentangBulanWajib((int) $iuran->periode);
+
+        return ApiResponse::success([
+            'bulan_approved'       => $bulanApproved,
+            'bulan_pending'        => $bulanPending,
+            'bulan_rejected'       => $bulanRejected,
+            'bulan_cancelled'      => $bulanCancelled,
+            'bulan_mulai_bayar'    => $bulanMulai,
+            'bulan_maksimal_bayar' => $bulanMaksimal,
+        ], 'Data bulan yang sudah dibayar berhasil diambil.');
     }
-
+    
     public function getUnpaidWargaByLeader(Request $request): JsonResponse
     {
         $user = Auth::user();

@@ -69,16 +69,17 @@ class WargaController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'nik'        => 'required|digits:16|unique:warga,nik',
-            'nama_warga' => 'required|string|max:100',
-            'alamat'     => 'required|string',
-            'no_hp'      => [
+            'nik'               => 'required|digits:16|unique:warga,nik',
+            'nama_warga'        => 'required|string|max:100',
+            'alamat'            => 'required|string',
+            'no_hp'             => [
                 'required',
                 'string',
                 'max:20',
-                'unique:warga,no_hp',   // ← unique di warga
-                'unique:users,no_hp',   // ← unique di users
+                'unique:warga,no_hp',
+                'unique:users,no_hp',
             ],
+            'tanggal_bergabung' => 'nullable|date',
         ], [
             'nik.required'        => 'NIK wajib diisi.',
             'nik.digits'   => 'NIK harus tepat 16 digit angka.',
@@ -92,6 +93,7 @@ class WargaController extends Controller
             'no_hp.string'        => 'Nomor HP harus berupa teks.',
             'no_hp.max'           => 'Nomor HP maksimal 20 karakter.',
             'no_hp.unique' => 'Nomor HP sudah digunakan oleh warga lain.',
+            'tanggal_bergabung.date' => 'Tanggal bergabung harus berupa tanggal yang valid.',
         ]);
 
         if ($validator->fails()) {
@@ -104,7 +106,7 @@ class WargaController extends Controller
             $user = User::create([
                 'name'      => $validator->validated()['nama_warga'],
                 'username'  => $request->nik,
-                'no_hp'     => $request->no_hp, // ← tambah
+                'no_hp'     => $request->no_hp,
                 'password'  => null,
                 'role'      => 'warga',
                 'is_active' => true,
@@ -136,22 +138,23 @@ class WargaController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'nama_warga' => 'sometimes|required|string|max:100',
-            'alamat'     => 'sometimes|required|string',
-            'no_hp'      => [
+            'nama_warga'        => 'sometimes|required|string|max:100',
+            'alamat'            => 'sometimes|required|string',
+            'no_hp'             => [
                 'nullable',
                 'string',
                 'max:20',
-                // Unique tapi ignore warga ini sendiri
                 Rule::unique('warga', 'no_hp')->ignore($nik, 'nik'),
                 Rule::unique('users', 'no_hp')->ignore($warga->id_user),
             ],
+            'tanggal_bergabung' => 'nullable|date',
         ], [
             'nama_warga.required' => 'Nama warga wajib diisi.',
             'nama_warga.max'      => 'Nama warga maksimal 100 karakter.',
             'alamat.required'     => 'Alamat wajib diisi.',
             'no_hp.max'           => 'Nomor HP maksimal 20 karakter.',
             'no_hp.unique'        => 'Nomor HP sudah digunakan oleh warga lain.',
+            'tanggal_bergabung.date' => 'Tanggal bergabung harus berupa tanggal yang valid.',
         ]);
 
         if ($validator->fails()) {
@@ -163,7 +166,6 @@ class WargaController extends Controller
         try {
             $warga->update($validator->validated());
 
-            // Sinkronkan ke tabel users
             if ($warga->user) {
                 $warga->user->update([
                     'name'  => $request->nama_warga ?? $warga->nama_warga,
@@ -288,16 +290,18 @@ class WargaController extends Controller
             }
 
             $inserted = 0;
+            $updated  = 0;
             $skipped  = 0;
             $errors   = [];
 
             foreach ($data as $rowIndex => $row) {
                 $lineNum = $rowIndex + 2;
 
-                $nik    = trim((string) ($row[0] ?? ''));
-                $nama   = trim((string) ($row[1] ?? ''));
-                $alamat = trim((string) ($row[2] ?? ''));
-                $hp     = trim((string) ($row[3] ?? ''));
+                $nik              = trim((string) ($row[0] ?? ''));
+                $nama             = trim((string) ($row[1] ?? ''));
+                $alamat           = trim((string) ($row[2] ?? ''));
+                $hp               = trim((string) ($row[3] ?? ''));
+                $tanggalBergabung = trim((string) ($row[4] ?? ''));
 
                 if (!$nik || !$nama) {
                     $skipped++;
@@ -311,72 +315,140 @@ class WargaController extends Controller
                     continue;
                 }
 
-                // Cek duplikat di kedua tabel: warga (nik) DAN users (username)
-                $existsInWarga = Warga::withTrashed()->where('nik', $nik)->exists();
-                $existsInUsers = User::withTrashed()->where('username', $nik)->exists();
-
-                if ($existsInWarga || $existsInUsers) {
-                    $skipped++;
-                    $errors[] = "Baris {$lineNum}: NIK '{$nik}' sudah terdaftar, dilewati.";
-                    continue;
+                $parsedTanggalBergabung = null;
+                if ($tanggalBergabung) {
+                    try {
+                        $parsedTanggalBergabung = \Carbon\Carbon::parse($tanggalBergabung)->format('Y-m-d');
+                    } catch (\Throwable $e) {
+                        $skipped++;
+                        $errors[] = "Baris {$lineNum}: Format tanggal bergabung '{$tanggalBergabung}' tidak valid, dilewati.";
+                        continue;
+                    }
                 }
 
-                // Transaksi per baris — kalau baris ini gagal, hanya baris ini yang di-rollback,
-                // baris lain yang sudah berhasil tetap tersimpan.
+                $existingWarga = Warga::withTrashed()->where('nik', $nik)->first();
+
                 try {
-                    DB::transaction(function () use ($nik, $nama, $alamat, $hp) {
-                        $user = User::create([
-                            'name'      => Str::upper($nama),
-                            'username'  => $nik,
-                            'password'  => null,
-                            'role'      => 'warga',
-                            'is_active' => true,
-                        ]);
+                    if ($existingWarga) {
+                        // Cek collision no_hp ke warga/user LAIN (bukan dirinya sendiri) sebelum update
+                        if ($hp) {
+                            $hpUsedByOtherWarga = Warga::withTrashed()
+                                ->where('no_hp', $hp)
+                                ->where('nik', '!=', $nik)
+                                ->exists();
 
-                        Warga::create([
-                            'nik'              => $nik,
-                            'nama_warga'       => Str::upper($nama),
-                            'alamat'           => $alamat ?: '-',
-                            'no_hp'            => $hp ?: null,
-                            'id_user'          => $user->id,
-                            'status_keaktifan' => 'aktif',
-                        ]);
-                    });
+                            $hpUsedByOtherUser = User::withTrashed()
+                                ->where('no_hp', $hp)
+                                ->where('id', '!=', $existingWarga->id_user)
+                                ->exists();
 
-                    $inserted++;
+                            if ($hpUsedByOtherWarga || $hpUsedByOtherUser) {
+                                $skipped++;
+                                $errors[] = "Baris {$lineNum}: No HP '{$hp}' sudah digunakan warga/user lain, data NIK '{$nik}' dilewati (tidak diupdate).";
+                                continue;
+                            }
+                        }
+
+                        // MODE UPDATE — field kosong di Excel tidak menimpa data lama
+                        DB::transaction(function () use ($existingWarga, $nama, $alamat, $hp, $parsedTanggalBergabung) {
+                            $updateData = [];
+
+                            if ($nama)   $updateData['nama_warga'] = Str::upper($nama);
+                            if ($alamat) $updateData['alamat'] = $alamat;
+                            if ($hp)     $updateData['no_hp'] = $hp;
+                            if ($parsedTanggalBergabung) $updateData['tanggal_bergabung'] = $parsedTanggalBergabung;
+
+                            if (!empty($updateData)) {
+                                $existingWarga->update($updateData);
+
+                                if ($existingWarga->user && (isset($updateData['nama_warga']) || isset($updateData['no_hp']))) {
+                                    $existingWarga->user->update([
+                                        'name'  => $updateData['nama_warga'] ?? $existingWarga->user->name,
+                                        'no_hp' => $updateData['no_hp'] ?? $existingWarga->user->no_hp,
+                                    ]);
+                                }
+                            }
+                        });
+
+                        $updated++;
+                    } else {
+                        $existsInUsers = User::withTrashed()->where('username', $nik)->exists();
+
+                        if ($existsInUsers) {
+                            $skipped++;
+                            $errors[] = "Baris {$lineNum}: NIK '{$nik}' sudah digunakan sebagai username user lain, dilewati.";
+                            continue;
+                        }
+
+                        // Cek collision no_hp untuk data BARU juga
+                        if ($hp) {
+                            $hpUsed = Warga::withTrashed()->where('no_hp', $hp)->exists()
+                                || User::withTrashed()->where('no_hp', $hp)->exists();
+
+                            if ($hpUsed) {
+                                $skipped++;
+                                $errors[] = "Baris {$lineNum}: No HP '{$hp}' sudah digunakan warga lain, dilewati.";
+                                continue;
+                            }
+                        }
+
+                        // MODE INSERT — data baru
+                        DB::transaction(function () use ($nik, $nama, $alamat, $hp, $parsedTanggalBergabung) {
+                            $user = User::create([
+                                'name'      => Str::upper($nama),
+                                'username'  => $nik,
+                                'no_hp'     => $hp ?: null,
+                                'password'  => null,
+                                'role'      => 'warga',
+                                'is_active' => true,
+                            ]);
+
+                            Warga::create([
+                                'nik'               => $nik,
+                                'nama_warga'        => Str::upper($nama),
+                                'alamat'            => $alamat ?: '-',
+                                'no_hp'             => $hp ?: null,
+                                'tanggal_bergabung' => $parsedTanggalBergabung,
+                                'id_user'           => $user->id,
+                                'status_keaktifan'  => 'aktif',
+                            ]);
+                        });
+
+                        $inserted++;
+                    }
                 } catch (\Throwable $e) {
                     $skipped++;
-                    $errors[] = "Baris {$lineNum}: Gagal disimpan, NIK '{$nik}' kemungkinan sudah terpakai atau terjadi kesalahan lain.";
+                    $errors[] = "Baris {$lineNum}: Gagal disimpan untuk NIK '{$nik}', terjadi kesalahan: " . $e->getMessage();
                     continue;
                 }
             }
 
             $this->writeLog(
                 'import',
-                "Import Excel warga. Berhasil: {$inserted}, dilewati: {$skipped}",
+                "Import Excel warga. Baru: {$inserted}, diperbarui: {$updated}, dilewati: {$skipped}",
                 $request
             );
 
             return ApiResponse::success(
                 [
                     'inserted' => $inserted,
+                    'updated'  => $updated,
                     'skipped'  => $skipped,
                     'errors'   => $errors,
                 ],
-                "Import selesai. {$inserted} data berhasil ditambahkan, {$skipped} dilewati."
+                "Import selesai. {$inserted} data baru ditambahkan, {$updated} data diperbarui, {$skipped} dilewati."
             );
         } catch (\Throwable $e) {
             return ApiResponse::error('Terjadi kesalahan saat import.', $e->getMessage(), 500);
         }
     }
-
     public function exportTemplate(): BinaryFileResponse
     {
-        $headers = ['NIK', 'Nama Warga', 'Alamat', 'No HP'];
+        $headers = ['NIK', 'Nama Warga', 'Alamat', 'No HP', 'Tanggal Bergabung (YYYY-MM-DD)'];
 
         $contohData = [
-            ['3171234567890001', 'Budi Santoso', 'Jl. Merdeka No. 1', '081234567890'],
-            ['3171234567890002', 'Siti Aminah', 'Jl. Sudirman No. 5', '082345678901'],
+            ['3171234567890001', 'Budi Santoso', 'Jl. Merdeka No. 1', '081234567890', '2020-01-15'],
+            ['3171234567890002', 'Siti Aminah', 'Jl. Sudirman No. 5', '082345678901', '2021-06-01'],
         ];
 
         $spreadsheet = new Spreadsheet();

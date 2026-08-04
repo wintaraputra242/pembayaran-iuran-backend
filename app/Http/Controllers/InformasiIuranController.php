@@ -204,6 +204,19 @@ class InformasiIuranController extends Controller
 
         $data = $validator->validated();
 
+        // Cegah perubahan jenis_iuran kalau sudah ada data pembayaran
+        if ($data['jenis_iuran'] !== $informasiIuran->jenis_iuran) {
+            $hasPembayaran = $informasiIuran->pembayaran()->exists();
+
+            if ($hasPembayaran) {
+                return ApiResponse::error(
+                    'Jenis iuran tidak dapat diubah karena sudah terdapat data pembayaran pada informasi iuran ini. Silakan buat informasi iuran baru jika ingin membuat jenis iuran yang berbeda.',
+                    null,
+                    422
+                );
+            }
+        }
+
         if ($data['jenis_iuran'] === 'bulanan') {
 
             if (empty($data['periode'])) {
@@ -364,7 +377,7 @@ class InformasiIuranController extends Controller
                 'ip_address'         => $request->ip(),
                 'user_agent'         => $request->userAgent(),
             ]);
-            
+
             Log::warning($test);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");

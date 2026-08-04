@@ -49,9 +49,15 @@ class InformasiIuranController extends Controller
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
-        $perPage        = $request->get('per_page', 10);
-        $bulanBergabung = (int) $warga->created_at->format('n');
-        $tahunBergabung = (int) $warga->created_at->format('Y');
+        $perPage = $request->get('per_page', 10);
+
+        // Basis sekarang tanggal_bergabung (bukan created_at) — fallback ke created_at
+        // kalau tanggal_bergabung belum diisi, supaya data lama tetap punya nilai.
+        $tanggalBergabung = $warga->tanggal_bergabung
+            ? \Carbon\Carbon::parse($warga->tanggal_bergabung)
+            : $warga->created_at;
+
+        $tahunBergabung = (int) $tanggalBergabung->format('Y');
 
         $query = InformasiIuran::with(['penanggungJawab:nik,nama_warga'])
             ->where('status_aktif', 1)
@@ -87,27 +93,24 @@ class InformasiIuranController extends Controller
         });
 
         // Filter iuran kematian — hanya tampilkan yang dibuat setelah warga bergabung
-        $query->where(function ($q) use ($warga) {
+        $query->where(function ($q) use ($warga, $tanggalBergabung) {
             $q->where('jenis_iuran', 'bulanan')
-                ->orWhere(function ($q2) use ($warga) {
+                ->orWhere(function ($q2) use ($warga, $tanggalBergabung) {
                     $q2->where('jenis_iuran', 'kematian')
-                        // Iuran dibuat setelah warga bergabung
-                        ->where('created_at', '>=', $warga->created_at)
+                        // Iuran dibuat setelah warga bergabung (basis tanggal_bergabung)
+                        ->where('created_at', '>=', $tanggalBergabung)
                         // Iuran dibuat sebelum atau saat warga nonaktif
                         ->where(function ($q3) use ($warga) {
                             if (
                                 $warga->status_keaktifan === 'tidak_aktif'
                                 && $warga->tanggal_nonaktif
                             ) {
-                                // Tampilkan iuran kematian yang dibuat
-                                // sebelum/saat tanggal nonaktif (inklusif)
                                 $q3->whereDate(
                                     'created_at',
                                     '<=',
                                     $warga->tanggal_nonaktif
                                 );
                             }
-                            // Kalau warga masih aktif — tampilkan semua
                         });
                 });
         });
@@ -146,13 +149,13 @@ class InformasiIuranController extends Controller
 
         $data = $query->paginate($perPage);
 
-        $data->getCollection()->transform(function ($iuran) use ($warga, $bulanBergabung, $tahunBergabung) {
+        $data->getCollection()->transform(function ($iuran) use ($warga) {
             $semuaPembayaran = Pembayaran::where('nik', $warga->nik)
                 ->where('id_informasi_iuran', $iuran->id)
                 ->get();
 
             if ($iuran->jenis_iuran === 'bulanan') {
-                $iuran = $this->resolveBulanan($iuran, $semuaPembayaran, $warga); // ← pass $warga
+                $iuran = $this->resolveBulanan($iuran, $semuaPembayaran, $warga);
             } else {
                 $iuran = $this->resolveNonBulanan($iuran, $semuaPembayaran);
             }
@@ -163,7 +166,6 @@ class InformasiIuranController extends Controller
 
         return ApiResponse::success($data, 'Data informasi iuran berhasil diambil.');
     }
-
     /**
      * Prioritas status: approved > pending > rejected
      */
@@ -178,13 +180,12 @@ class InformasiIuranController extends Controller
 
     private function resolveNonBulanan($iuran, $semuaPembayaran)
     {
-        // Ambil status terbaik dari semua record pembayaran iuran ini
+        $priority = ['approved' => 3, 'pending' => 2, 'rejected' => 1, 'cancelled' => 1];
+
         $bestStatus = $this->getBestStatus(
             $semuaPembayaran->pluck('status_bayar')->toArray()
         );
 
-        // Record dengan status terbaik
-        $priority   = ['approved' => 3, 'pending' => 2, 'rejected' => 1];
         $bestRecord = $semuaPembayaran
             ->sortByDesc(fn($p) => $priority[$p->status_bayar] ?? 0)
             ->first();
@@ -198,7 +199,7 @@ class InformasiIuranController extends Controller
 
     private function resolveBulanan($iuran, $semuaPembayaran, $warga = null)
     {
-        $priority = ['approved' => 3, 'pending' => 2, 'rejected' => 1];
+        $priority = ['approved' => 3, 'pending' => 2, 'rejected' => 1, 'cancelled' => 1];
 
         $statusPerBulan = $semuaPembayaran
             ->groupBy('bulan')
@@ -211,38 +212,24 @@ class InformasiIuranController extends Controller
                 ];
             });
 
-        $bulanApproved = $statusPerBulan->filter(fn($b) => $b['status'] === 'approved')->keys()->sort()->values();
-        $bulanPending  = $statusPerBulan->filter(fn($b) => $b['status'] === 'pending')->keys()->sort()->values();
-        $bulanRejected = $statusPerBulan->filter(fn($b) => $b['status'] === 'rejected')->keys()->sort()->values();
+        $bulanApproved  = $statusPerBulan->filter(fn($b) => $b['status'] === 'approved')->keys()->sort()->values();
+        $bulanPending   = $statusPerBulan->filter(fn($b) => $b['status'] === 'pending')->keys()->sort()->values();
+        $bulanRejected  = $statusPerBulan->filter(fn($b) => $b['status'] === 'rejected')->keys()->sort()->values();
+        $bulanCancelled = $statusPerBulan->filter(fn($b) => $b['status'] === 'cancelled')->keys()->sort()->values();
 
         $totalBulanTerhitung = $bulanApproved->count() + $bulanPending->count();
 
         // -------------------------------------------------------
         // Hitung total bulan WAJIB bayar berdasarkan warga
+        // (logic sudah di-extract ke Warga::hitungRentangBulanWajib()
+        // supaya konsisten dengan endpoint lain seperti getDropdownWargaForPembayaran & getPaidMonth)
         // -------------------------------------------------------
         $tahunPeriode  = (int) $iuran->periode;
         $bulanMulai    = 1;
         $bulanMaksimal = 12;
 
         if ($warga) {
-            $tahunBergabung = (int) $warga->created_at->format('Y');
-            $bulanBergabung = (int) $warga->created_at->format('n');
-
-            if ($tahunBergabung === $tahunPeriode) {
-                $bulanMulai = $bulanBergabung;
-            }
-
-            if ($warga->status_keaktifan === 'tidak_aktif' && $warga->tanggal_nonaktif) {
-                $tglNonaktif   = \Carbon\Carbon::parse($warga->tanggal_nonaktif);
-                $tahunNonaktif = (int) $tglNonaktif->format('Y');
-                $bulanNonaktif = (int) $tglNonaktif->format('n');
-
-                if ($tahunNonaktif === $tahunPeriode) {
-                    $bulanMaksimal = $bulanNonaktif;
-                } elseif ($tahunNonaktif < $tahunPeriode) {
-                    $bulanMaksimal = 0;
-                }
-            }
+            [$bulanMulai, $bulanMaksimal] = $warga->hitungRentangBulanWajib($tahunPeriode);
         }
 
         // Total bulan yang wajib dibayar untuk warga ini
@@ -254,7 +241,6 @@ class InformasiIuranController extends Controller
         if ($totalBulanTerhitung === 0) {
             $statusUtama = 'belum_bayar';
         } elseif ($bulanApproved->count() >= $totalBulanWajib && $totalBulanWajib > 0) {
-            // Semua bulan wajib sudah approved → lunas
             $statusUtama = 'sudah_bayar';
         } else {
             $statusUtama = 'sebagian_bayar';
@@ -265,18 +251,19 @@ class InformasiIuranController extends Controller
             ->sortByDesc('tanggal_bayar')
             ->first();
 
-        $iuran->status_bayar              = $statusUtama;
-        $iuran->bulan_approved            = $bulanApproved;
-        $iuran->bulan_pending             = $bulanPending;
-        $iuran->bulan_rejected            = $bulanRejected;
-        $iuran->total_bulan_approved      = $bulanApproved->count();
-        $iuran->total_bulan_pending       = $bulanPending->count();
-        $iuran->total_bulan_terhitung     = $totalBulanTerhitung;
-        $iuran->total_bulan_wajib         = $totalBulanWajib;   // ← info tambahan
-        $iuran->tanggal_bayar             = $lastRecord?->tanggal_bayar;
-        $iuran->id_pembayaran             = $lastRecord?->id;
-        $iuran->bulan_mulai_bayar         = $bulanMulai;
-        $iuran->bulan_maksimal_bayar      = $bulanMaksimal;
+        $iuran->status_bayar          = $statusUtama;
+        $iuran->bulan_approved        = $bulanApproved;
+        $iuran->bulan_pending         = $bulanPending;
+        $iuran->bulan_rejected        = $bulanRejected;
+        $iuran->bulan_cancelled       = $bulanCancelled;
+        $iuran->total_bulan_approved  = $bulanApproved->count();
+        $iuran->total_bulan_pending   = $bulanPending->count();
+        $iuran->total_bulan_terhitung = $totalBulanTerhitung;
+        $iuran->total_bulan_wajib     = $totalBulanWajib;
+        $iuran->tanggal_bayar         = $lastRecord?->tanggal_bayar;
+        $iuran->id_pembayaran         = $lastRecord?->id;
+        $iuran->bulan_mulai_bayar     = $bulanMulai;
+        $iuran->bulan_maksimal_bayar  = $bulanMaksimal;
 
         return $iuran;
     }
