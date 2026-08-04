@@ -246,26 +246,89 @@ class PembayaranController extends Controller
             ->where('status_aktif', true)
             ->get();
 
-        $result = $iuranBulanan->map(function ($iuran) use ($warga) {
+        $tanggalBergabung = $warga->tanggal_bergabung
+            ? \Carbon\Carbon::parse($warga->tanggal_bergabung)
+            : null;
+
+        $tanggalNonaktif = $warga->status_keaktifan === 'nonaktif' && $warga->tanggal_nonaktif
+            ? \Carbon\Carbon::parse($warga->tanggal_nonaktif)
+            : null;
+
+        $result = $iuranBulanan->map(function ($iuran) use ($warga, $tanggalBergabung, $tanggalNonaktif) {
+            $periodeTahun = (int) $iuran->periode;
+
             $pembayaran = Pembayaran::where('nik', $warga->nik)
                 ->where('id_informasi_iuran', $iuran->id)
-                ->whereIn('status_bayar', ['approved', 'pending'])
                 ->get();
 
-            $bulanSudahBayar = $pembayaran
+            $bulanApproved = $pembayaran
+                ->where('status_bayar', 'approved')
                 ->pluck('bulan')
                 ->flatten()
                 ->unique()
                 ->sort()
                 ->values();
 
+            $bulanPending = $pembayaran
+                ->where('status_bayar', 'pending')
+                ->pluck('bulan')
+                ->flatten()
+                ->unique()
+                ->sort()
+                ->values();
+
+            $bulanRejected = $pembayaran
+                ->where('status_bayar', 'rejected')
+                ->pluck('bulan')
+                ->flatten()
+                ->unique()
+                ->sort()
+                ->values();
+
+            $bulanCancelled = $pembayaran
+                ->where('status_bayar', 'cancelled')
+                ->pluck('bulan')
+                ->flatten()
+                ->unique()
+                ->sort()
+                ->values();
+
+            // Bulan mulai bayar: berdasarkan tanggal_bergabung
+            $bulanMulaiBayar = 1;
+            if ($tanggalBergabung) {
+                if ($tanggalBergabung->year == $periodeTahun) {
+                    $bulanMulaiBayar = $tanggalBergabung->month;
+                } elseif ($tanggalBergabung->year > $periodeTahun) {
+                    // Bergabung setelah periode iuran ini -> tidak ada bulan yang wajib
+                    $bulanMulaiBayar = 13;
+                }
+                // kalau tahun bergabung < periode, tetap wajib dari bulan 1
+            }
+
+            // Bulan maksimal bayar: berdasarkan tanggal_nonaktif (kalau warga nonaktif)
+            $bulanMaksimalBayar = 12;
+            if ($tanggalNonaktif) {
+                if ($tanggalNonaktif->year == $periodeTahun) {
+                    $bulanMaksimalBayar = $tanggalNonaktif->month;
+                } elseif ($tanggalNonaktif->year < $periodeTahun) {
+                    // Sudah nonaktif sebelum periode iuran ini -> tidak ada bulan yang wajib
+                    $bulanMaksimalBayar = 0;
+                }
+                // kalau tahun nonaktif > periode, tetap wajib sampai bulan 12
+            }
+
             return [
-                'id_informasi_iuran' => $iuran->id,
-                'nama_iuran'         => $iuran->nama_iuran,
-                'jumlah_iuran'       => $iuran->jumlah_iuran,
-                'tahun'              => $iuran->tahun,
-                'bulan_sudah_bayar'  => $bulanSudahBayar,
-                'total_bulan_bayar'  => $bulanSudahBayar->count(),
+                'id_informasi_iuran'   => $iuran->id,
+                'judul_iuran'          => $iuran->judul_iuran,
+                'jumlah_iuran'         => $iuran->jumlah_iuran,
+                'periode'              => $iuran->periode,
+                'bulan_approved'       => $bulanApproved,
+                'bulan_pending'        => $bulanPending,
+                'bulan_rejected'       => $bulanRejected,
+                'bulan_cancelled'      => $bulanCancelled,
+                'bulan_mulai_bayar'    => $bulanMulaiBayar,
+                'bulan_maksimal_bayar' => $bulanMaksimalBayar,
+                'total_bulan_bayar'    => $bulanApproved->count(),
             ];
         });
 

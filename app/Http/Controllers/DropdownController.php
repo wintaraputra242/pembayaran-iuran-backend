@@ -93,7 +93,7 @@ class DropdownController extends Controller
                 }
             },
         ])
-            ->select('nik', 'nama_warga')
+            ->select('nik', 'nama_warga', 'tanggal_bergabung', 'status_keaktifan', 'tanggal_nonaktif', 'created_at')
             ->when($reguKetua, function ($query) use ($reguKetua) {
                 $query->whereHas('anggotaRegu', function ($q) use ($reguKetua) {
                     $q->where('id_regu', $reguKetua)
@@ -127,7 +127,17 @@ class DropdownController extends Controller
                         ->unique()
                         ->values();
 
-                    return $bulanSudahDibayar->count() < 12;
+                    // Hitung total bulan WAJIB untuk warga ini (bukan hardcode 12)
+                    [$bulanMulai, $bulanMaksimal] = $warga->hitungRentangBulanWajib((int) $iuran->periode);
+                    $totalBulanWajib = max(0, $bulanMaksimal - $bulanMulai + 1);
+
+                    // Kalau tidak ada bulan wajib sama sekali untuk warga ini
+                    // (misal bergabung setelah periode ini berakhir), tidak perlu tampil di dropdown
+                    if ($totalBulanWajib === 0) {
+                        return false;
+                    }
+
+                    return $bulanSudahDibayar->count() < $totalBulanWajib;
                 }
 
                 return true;
@@ -160,13 +170,10 @@ class DropdownController extends Controller
                     'regu'                => $namaRegu,
                     'regu_id'             => $anggotaAktif->regu->id ?? null,
                     'bulan_sudah_dibayar' => $bulanSudahDibayar,
-                    // Helper key khusus untuk sorting, dibuang sebelum dikirim ke response
                     '_tanpa_regu'         => $namaRegu === null ? 1 : 0,
                     '_regu_sort'          => $namaRegu ?? '',
                 ];
             })
-            // sortBy dengan array butuh string key (bukan closure) di posisi pertama tiap comparison,
-            // jadi kita pakai helper key yang sudah disiapkan di atas.
             ->sortBy([
                 ['_tanpa_regu', 'asc'],
                 ['_regu_sort', 'asc'],
