@@ -15,6 +15,8 @@ use App\Models\InformasiIuran;
 use App\Models\Warga;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class LaporanController extends Controller
 {
@@ -123,26 +125,63 @@ class LaporanController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $request->validate([
-            'id_informasi_iuran' => 'required|exists:informasi_iuran,id',
-        ], [
-            'id_informasi_iuran.required' => 'Informasi iuran wajib dipilih.',
-            'id_informasi_iuran.exists'   => 'Informasi iuran tidak ditemukan.',
-        ]);
+        $hasIdInformasiIuran = $request->filled('id_informasi_iuran');
+        $hasRentangKematian  = $request->filled('jenis_iuran')
+            && $request->filled('start_date')
+            && $request->filled('end_date');
 
-        $iuran = InformasiIuran::findOrFail($request->id_informasi_iuran);
+        if (!$hasIdInformasiIuran && !$hasRentangKematian) {
+            return ApiResponse::error(
+                'Wajib mengisi id_informasi_iuran, atau jenis_iuran beserta start_date dan end_date untuk laporan gabungan iuran kematian.',
+                null,
+                422
+            );
+        }
+
+        if ($hasIdInformasiIuran) {
+            $request->validate([
+                'id_informasi_iuran' => 'required|exists:informasi_iuran,id',
+            ], [
+                'id_informasi_iuran.required' => 'Informasi iuran wajib dipilih.',
+                'id_informasi_iuran.exists'   => 'Informasi iuran tidak ditemukan.',
+            ]);
+
+            $iuran = InformasiIuran::findOrFail($request->id_informasi_iuran);
+
+            $this->writeLog(
+                'export',
+                "Mengunduh laporan {$iuran->jenis_iuran} '{$iuran->judul_iuran}' dalam format PDF.",
+                $request
+            );
+
+            if ($iuran->jenis_iuran === 'bulanan') {
+                return $this->exportBulanan($iuran);
+            }
+
+            return $this->exportKematian($iuran);
+        }
+
+        $request->validate([
+            'jenis_iuran' => 'required|in:kematian',
+            'start_date'  => 'required|date',
+            'end_date'    => 'required|date|after_or_equal:start_date',
+        ], [
+            'jenis_iuran.required'    => 'Jenis iuran wajib diisi.',
+            'jenis_iuran.in'          => 'Laporan gabungan berdasarkan rentang tanggal hanya tersedia untuk jenis iuran kematian.',
+            'start_date.required'     => 'Tanggal mulai wajib diisi.',
+            'start_date.date'         => 'Tanggal mulai tidak valid.',
+            'end_date.required'       => 'Tanggal akhir wajib diisi.',
+            'end_date.date'           => 'Tanggal akhir tidak valid.',
+            'end_date.after_or_equal' => 'Tanggal akhir harus setelah atau sama dengan tanggal mulai.',
+        ]);
 
         $this->writeLog(
             'export',
-            "Mengunduh laporan {$iuran->jenis_iuran} '{$iuran->judul_iuran}' dalam format PDF.",
+            "Mengunduh laporan gabungan iuran kematian periode {$request->start_date} s/d {$request->end_date} dalam format PDF.",
             $request
         );
 
-        if ($iuran->jenis_iuran === 'bulanan') {
-            return $this->exportBulanan($iuran);
-        }
-
-        return $this->exportKematian($iuran);
+        return $this->exportKematianRentang($request->start_date, $request->end_date);
     }
 
     // ─── Export Bulanan ───────────────────────────────────────────────────────────
@@ -252,6 +291,67 @@ class LaporanController extends Controller
         ])->setPaper('a4', 'portrait');
 
         $filename = 'laporan-kematian-' . Str::slug($iuran->judul_iuran) . '-' . now()->format('Ymd') . '.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    // ─── Export Kematian (gabungan berdasarkan rentang tanggal) ─────────────────────
+
+    private function exportKematianRentang(string $startDate, string $endDate)
+    {
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end   = Carbon::parse($endDate)->endOfDay();
+
+        // Semua informasi_iuran kematian yang dibuat dalam rentang tanggal ini
+        $iurans = InformasiIuran::where('jenis_iuran', 'kematian')
+            ->whereBetween('created_at', [$start, $end])
+            ->orderBy('created_at')
+            ->get();
+
+        // Ambil semua warga aktif sekali saja, dipakai ulang untuk tiap kelompok iuran
+        $wargas = Warga::with([
+            'anggotaRegu' => fn($q) => $q->whereNull('deleted_at')
+                ->where('status_keaktifan', 'aktif')
+                ->with('regu'),
+        ])
+            ->whereNull('deleted_at')
+            ->select('nik', 'nama_warga')
+            ->orderBy('nama_warga')
+            ->get();
+
+        // NIK yang sudah bayar (approved), dikelompokkan per informasi_iuran
+        $sudahBayarPerIuran = Pembayaran::whereIn('id_informasi_iuran', $iurans->pluck('id'))
+            ->whereIn('status_bayar', ['approved'])
+            ->get()
+            ->groupBy('id_informasi_iuran')
+            ->map(fn($rows) => $rows->pluck('nik')->unique()->toArray());
+
+        // Susun 1 baris per warga, 1 kolom per informasi_iuran kematian (mirip pola laporan bulanan)
+        $data = $wargas->map(function ($warga) use ($iurans, $sudahBayarPerIuran) {
+            $anggotaAktif = $warga->anggotaRegu->first();
+
+            $statusPerIuran = $iurans->mapWithKeys(function ($iuran) use ($warga, $sudahBayarPerIuran) {
+                $niks = $sudahBayarPerIuran->get($iuran->id, []);
+
+                return [$iuran->id => in_array($warga->nik, $niks)];
+            })->toArray();
+
+            return [
+                'nama_warga'       => $warga->nama_warga,
+                'regu'             => $anggotaAktif?->regu?->nama_regu ?? '-',
+                'status_per_iuran' => $statusPerIuran,
+                'jumlah_bayar'     => collect($statusPerIuran)->filter()->count(),
+            ];
+        })->values()->toArray();
+
+        $pdf = Pdf::loadView('exports.laporan-kematian-rentang', [
+            'iurans'    => $iurans,
+            'wargas'    => $data,
+            'startDate' => $start,
+            'endDate'   => $end,
+        ])->setPaper('a4', 'landscape');
+
+        $filename = 'laporan-kematian-' . $start->format('Ymd') . '-' . $end->format('Ymd') . '.pdf';
 
         return $pdf->download($filename);
     }
