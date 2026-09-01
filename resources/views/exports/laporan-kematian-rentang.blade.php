@@ -111,6 +111,31 @@
       color: #777;
       font-size: 10px;
     }
+
+    .ttd {
+      width: 100%;
+      margin-top: 30px;
+    }
+    .ttd table {
+      width: 100%;
+      border: none;
+    }
+    .ttd td {
+      border: none;
+      padding: 0;
+      font-size: 10px;
+    }
+    .ttd .kolom-ttd {
+      width: 200px;
+      text-align: center;
+    }
+    .ttd .spasi-ttd {
+      height: 50px;
+    }
+    .ttd .nama-ttd {
+      font-weight: bold;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -197,6 +222,25 @@
       </p>
     </div>
   @endif
+
+  <!-- Tanda Tangan Pengurus -->
+  <div class="ttd">
+    <table>
+      <tr>
+        <td style="width: 60%;">&nbsp;</td>
+        <td class="kolom-ttd" style="width: 40%;">
+          <p>Denpasar, {{ now()->translatedFormat('d F Y') }}</p>
+          <p>{{ $jabatanPengurus }},</p>
+          @if ($ttdPengurus)
+            <img src="{{ $ttdPengurus }}" style="height: 60px; margin: 2px 0;">
+          @else
+            <div class="spasi-ttd"></div>
+          @endif
+          <p class="nama-ttd">{{ $pengurus }}</p>
+        </td>
+      </tr>
+    </table>
+  </div>
 
   <div class="footer">
     Dicetak otomatis oleh sistem &mdash; {{ now()->translatedFormat('d F Y H:i') }}

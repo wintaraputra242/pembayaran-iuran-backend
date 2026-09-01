@@ -1,2 +1,4 @@
 *
 !.gitignore
+!signatures/
+!signatures/ttd-kelian.png

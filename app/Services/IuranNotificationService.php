@@ -324,7 +324,7 @@ class IuranNotificationService
      *
      * @return string  'firebase' | 'whatsapp' | 'gagal'
      */
-    public function kirimPesanKeWarga($warga, string $title, string $message): string
+    public function kirimPesanKeWarga($warga, string $title, string $message, string $type = 'pengingat'): string
     {
         $berhasil = false;
         $channel  = null;
@@ -360,7 +360,7 @@ class IuranNotificationService
             \App\Models\Notification::create([
                 'title'   => $title,
                 'message' => $message,
-                'type'    => 'pengingat',
+                'type'    => $type,
                 'user_id' => $warga->user->id,
             ]);
         }
