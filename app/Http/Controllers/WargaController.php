@@ -112,7 +112,7 @@ class WargaController extends Controller
                 'is_active' => true,
             ]);
 
-            Warga::create([
+            $warga = Warga::create([
                 ...$validator->validated(),
                 'id_user'          => $user->id,
                 'status_keaktifan' => 'aktif',
@@ -121,6 +121,17 @@ class WargaController extends Controller
             $this->writeLog('create', "Menambahkan data warga baru dengan NIK {$request->nik}", $request);
 
             DB::commit();
+
+            try {
+                app(\App\Services\IuranNotificationService::class)->kirimPesanKeWarga(
+                    $warga,
+                    'Akun Anda Telah Dibuat 🎉',
+                    "Selamat datang, {$warga->nama_warga}. Akun Anda telah didaftarkan oleh pengurus dengan NIK {$warga->nik}. Anda dapat login menggunakan NIK sebagai username.",
+                    'akun'
+                );
+            } catch (\Throwable $e) {
+                Log::warning("Gagal mengirim notifikasi akun warga baru: {$e->getMessage()}");
+            }
 
             return ApiResponse::success(null, 'Data warga berhasil ditambahkan.', 201);
         } catch (\Throwable $e) {
@@ -265,6 +276,21 @@ class WargaController extends Controller
             "Mengubah status warga NIK {$warga->nik} ({$warga->nama_warga}) menjadi {$statusBaru}",
             $request
         );
+
+        try {
+            $pesan = $statusBaru === 'aktif'
+                ? "Status keanggotaan Anda telah diaktifkan kembali oleh pengurus."
+                : "Status keanggotaan Anda telah dinonaktifkan oleh pengurus.";
+
+            app(\App\Services\IuranNotificationService::class)->kirimPesanKeWarga(
+                $warga,
+                'Status Keanggotaan Diperbarui',
+                $pesan,
+                'status_warga'
+            );
+        } catch (\Throwable $e) {
+            Log::warning("Gagal mengirim notifikasi status warga: {$e->getMessage()}");
+        }
 
         return ApiResponse::success(null, 'Status keaktifan berhasil diperbarui.');
     }

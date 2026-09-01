@@ -226,6 +226,16 @@ class PembayaranController extends Controller
 
             DB::commit();
 
+            $warga->load('user.devices');
+
+            $this->notifyWarga(
+                $warga,
+                'Pembayaran Dicatat ✅',
+                "Pembayaran Anda untuk {$iuran->judul_iuran} telah dicatat dan disetujui oleh pengurus.",
+                'approved',
+                ['pembayaran_id' => $pembayaran->id, 'nik' => $warga->nik]
+            );
+
             return ApiResponse::success([
                 'pembayaran' => $pembayaran,
             ], 'Transaksi pembayaran berhasil.', 201);
@@ -903,11 +913,15 @@ class PembayaranController extends Controller
             $qrString          = $notification->qr_string ?? null;
             $fraudStatus       = $notification->fraud_status ?? null;
 
-            $pembayaran = Pembayaran::where('midtrans_order_id', $orderId)->first();
+            $pembayaran = Pembayaran::with(['informasiIuran', 'warga.user.devices'])
+                ->where('midtrans_order_id', $orderId)
+                ->first();
 
             if (!$pembayaran) {
                 return response()->json(['message' => 'Order tidak ditemukan.'], 404);
             }
+
+            $statusSebelumnya = $pembayaran->status_bayar;
 
             $pembayaran->status_bayar = match (true) {
                 $transactionStatus === 'capture' && $fraudStatus === 'accept'    => 'paid',
@@ -937,6 +951,28 @@ class PembayaranController extends Controller
             ]);
 
             DB::commit();
+
+            if ($pembayaran->warga && $statusSebelumnya !== $pembayaran->status_bayar) {
+                $judul = $pembayaran->informasiIuran?->judul_iuran;
+
+                $pesanStatus = match ($pembayaran->status_bayar) {
+                    'paid'     => ["Pembayaran Berhasil ✅", "Pembayaran {$judul} Anda telah berhasil diterima."],
+                    'failed'   => ["Pembayaran Gagal ❌", "Pembayaran {$judul} Anda gagal diproses. Silakan coba lagi."],
+                    'expired'  => ["Pembayaran Kedaluwarsa ⏰", "Batas waktu pembayaran {$judul} Anda telah habis. Silakan lakukan pembayaran ulang."],
+                    'canceled' => ["Pembayaran Dibatalkan ⚠️", "Pembayaran {$judul} Anda telah dibatalkan."],
+                    default    => null,
+                };
+
+                if ($pesanStatus) {
+                    $this->notifyWarga(
+                        $pembayaran->warga,
+                        $pesanStatus[0],
+                        $pesanStatus[1],
+                        $pembayaran->status_bayar,
+                        ['pembayaran_id' => $pembayaran->id, 'nik' => $pembayaran->warga->nik]
+                    );
+                }
+            }
 
             return response()->json(['message' => 'OK'], 200);
         } catch (\Throwable $e) {
@@ -1062,32 +1098,13 @@ class PembayaranController extends Controller
             $title   = 'Pembayaran Disetujui ✅';
             $message = "Pembayaran {$pembayaran->informasiIuran?->judul_iuran} Anda telah disetujui oleh pengurus.";
 
-            $tokens = collect($pembayaran->warga?->user?->devices?->pluck('fcm_token') ?? [])
-                ->filter()
-                ->unique()
-                ->values()
-                ->toArray();
-
-            if (!empty($tokens)) {
-                (new \App\Services\FirebaseService())->sendBulk($tokens, $title, $message);
-            }
-
-            // simpan ke table notifikasi
-            if ($pembayaran->warga?->user) {
-                DB::table('notifications')->insert([
-                    'user_id'    => $pembayaran->warga->user->id,
-                    'title'      => $title,
-                    'message'    => $message,
-                    'type'       => 'approved',
-                    'is_read'    => false,
-                    'data'       => json_encode([
-                        'pembayaran_id' => $pembayaran->id,
-                        'nik'           => $pembayaran->warga->nik,
-                    ]),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+            $this->notifyWarga(
+                $pembayaran->warga,
+                $title,
+                $message,
+                'approved',
+                ['pembayaran_id' => $pembayaran->id, 'nik' => $pembayaran->warga?->nik]
+            );
 
             return ApiResponse::success(null, 'Pembayaran berhasil disetujui.');
         } catch (\Throwable $e) {
@@ -1141,32 +1158,13 @@ class PembayaranController extends Controller
             $title   = 'Pembayaran Ditolak ❌';
             $message = "Pembayaran {$pembayaran->informasiIuran?->judul_iuran} Anda ditolak. Alasan: {$request->rejection_reason}";
 
-            $tokens = collect($pembayaran->warga?->user?->devices?->pluck('fcm_token') ?? [])
-                ->filter()
-                ->unique()
-                ->values()
-                ->toArray();
-
-            if (!empty($tokens)) {
-                (new \App\Services\FirebaseService())->sendBulk($tokens, $title, $message);
-            }
-
-            // simpan ke table notifikasi
-            if ($pembayaran->warga?->user) {
-                DB::table('notifications')->insert([
-                    'user_id'    => $pembayaran->warga->user->id,
-                    'title'      => $title,
-                    'message'    => $message,
-                    'type'       => 'rejected',
-                    'is_read'    => false,
-                    'data'       => json_encode([
-                        'pembayaran_id' => $pembayaran->id,
-                        'nik'           => $pembayaran->warga->nik,
-                    ]),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+            $this->notifyWarga(
+                $pembayaran->warga,
+                $title,
+                $message,
+                'rejected',
+                ['pembayaran_id' => $pembayaran->id, 'nik' => $pembayaran->warga?->nik]
+            );
 
             return ApiResponse::success(null, 'Pembayaran berhasil ditolak.');
         } catch (\Throwable $e) {
@@ -1177,7 +1175,7 @@ class PembayaranController extends Controller
 
     public function cancel(Request $request, $id): JsonResponse
     {
-        $pembayaran = Pembayaran::find($id);
+        $pembayaran = Pembayaran::with(['informasiIuran', 'warga.user.devices'])->find($id);
 
         if (!$pembayaran) {
             return ApiResponse::error('Data pembayaran tidak ditemukan.', null, 404);
@@ -1215,6 +1213,14 @@ class PembayaranController extends Controller
             );
 
             DB::commit();
+
+            $this->notifyWarga(
+                $pembayaran->warga,
+                'Pembayaran Dibatalkan ⚠️',
+                "Pembayaran {$pembayaran->informasiIuran?->judul_iuran} Anda yang sebelumnya disetujui telah dibatalkan oleh pengurus. Alasan: {$request->alasan_pembatalan}",
+                'cancelled',
+                ['pembayaran_id' => $pembayaran->id, 'nik' => $pembayaran->warga?->nik]
+            );
 
             return ApiResponse::success(null, 'Pembayaran berhasil dibatalkan.');
         } catch (\Throwable $e) {
@@ -1373,6 +1379,54 @@ class PembayaranController extends Controller
             ]);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Kirim notifikasi terkait status pembayaran ke warga: Firebase dulu,
+     * fallback ke WA jika gagal/tidak ada device, lalu simpan riwayat in-app.
+     * Kegagalan pengiriman tidak boleh menggagalkan aksi utama (approve/reject/dll),
+     * karena itu semua exception ditelan dan hanya dicatat ke log.
+     */
+    private function notifyWarga($warga, string $title, string $message, string $type, array $data = []): void
+    {
+        if (!$warga) {
+            return;
+        }
+
+        try {
+            $tokens = collect($warga->user?->devices?->pluck('fcm_token') ?? [])
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray();
+
+            $terkirim = false;
+
+            if (!empty($tokens)) {
+                try {
+                    (new \App\Services\FirebaseService())->sendBulk($tokens, $title, $message);
+                    $terkirim = true;
+                } catch (\Throwable $e) {
+                    Log::warning("Firebase gagal, fallback ke WA: {$e->getMessage()}");
+                }
+            }
+
+            if (!$terkirim && $warga->no_hp) {
+                app(\App\Services\FonnteService::class)->send($warga->no_hp, $message, delay: 15);
+            }
+
+            if ($warga->user) {
+                NotificationModel::create([
+                    'title'   => $title,
+                    'message' => $message,
+                    'type'    => $type,
+                    'user_id' => $warga->user->id,
+                    'data'    => $data,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Gagal mengirim notifikasi ke warga {$warga->nik}: {$e->getMessage()}");
         }
     }
 }

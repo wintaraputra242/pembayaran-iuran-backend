@@ -93,6 +93,31 @@
       font-size: 9px;
       color: #444;
     }
+
+    .ttd {
+      width: 100%;
+      margin-top: 30px;
+    }
+    .ttd table {
+      width: 100%;
+      border: none;
+    }
+    .ttd td {
+      border: none;
+      padding: 0;
+      font-size: 10px;
+    }
+    .ttd .kolom-ttd {
+      width: 200px;
+      text-align: center;
+    }
+    .ttd .spasi-ttd {
+      height: 50px;
+    }
+    .ttd .nama-ttd {
+      font-weight: bold;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -173,6 +198,25 @@
       &nbsp;|&nbsp;
       Belum Lunas: <strong>{{ collect($wargas)->filter(fn($w) => count($w['bulan_dibayar'] ?? []) < 12)->count() }} warga</strong>
     </p>
+  </div>
+
+  <!-- Tanda Tangan Pengurus -->
+  <div class="ttd">
+    <table>
+      <tr>
+        <td style="width: 60%;">&nbsp;</td>
+        <td class="kolom-ttd" style="width: 40%;">
+          <p>Denpasar, {{ now()->translatedFormat('d F Y') }}</p>
+          <p>{{ $jabatanPengurus }},</p>
+          @if ($ttdPengurus)
+            <img src="{{ $ttdPengurus }}" style="height: 60px; margin: 2px 0;">
+          @else
+            <div class="spasi-ttd"></div>
+          @endif
+          <p class="nama-ttd">{{ $pengurus }}</p>
+        </td>
+      </tr>
+    </table>
   </div>
 
   <div class="footer">

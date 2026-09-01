@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\DB;
 
 class LaporanController extends Controller
 {
+    private const NAMA_KELIAN    = 'Gusti Putu Adnyana, S.H.';
+    private const JABATAN_KELIAN = 'Kelian Banjar';
+
     public function index(Request $request)
     {
         $query = Pembayaran::query()
@@ -243,9 +246,12 @@ class LaporanController extends Controller
         ];
 
         $pdf = Pdf::loadView('exports.laporan-bulanan', [
-            'iuran'        => $iuran,
-            'wargas'       => $data,
-            'bulanHeaders' => $bulanHeaders,
+            'iuran'          => $iuran,
+            'wargas'         => $data,
+            'bulanHeaders'   => $bulanHeaders,
+            'pengurus'       => self::NAMA_KELIAN,
+            'jabatanPengurus' => self::JABATAN_KELIAN,
+            'ttdPengurus'    => $this->getTtdKelianBase64(),
         ])->setPaper('a4', 'landscape');
 
         $filename = 'laporan-bulanan-' . Str::slug($iuran->judul_iuran) . '-' . now()->format('Ymd') . '.pdf';
@@ -286,8 +292,11 @@ class LaporanController extends Controller
         })->values()->toArray();
 
         $pdf = Pdf::loadView('exports.laporan-kematian', [
-            'iuran'  => $iuran,
-            'wargas' => $data,
+            'iuran'          => $iuran,
+            'wargas'         => $data,
+            'pengurus'       => self::NAMA_KELIAN,
+            'jabatanPengurus' => self::JABATAN_KELIAN,
+            'ttdPengurus'    => $this->getTtdKelianBase64(),
         ])->setPaper('a4', 'portrait');
 
         $filename = 'laporan-kematian-' . Str::slug($iuran->judul_iuran) . '-' . now()->format('Ymd') . '.pdf';
@@ -345,15 +354,29 @@ class LaporanController extends Controller
         })->values()->toArray();
 
         $pdf = Pdf::loadView('exports.laporan-kematian-rentang', [
-            'iurans'    => $iurans,
-            'wargas'    => $data,
-            'startDate' => $start,
-            'endDate'   => $end,
+            'iurans'         => $iurans,
+            'wargas'         => $data,
+            'startDate'      => $start,
+            'endDate'        => $end,
+            'pengurus'       => self::NAMA_KELIAN,
+            'jabatanPengurus' => self::JABATAN_KELIAN,
+            'ttdPengurus'    => $this->getTtdKelianBase64(),
         ])->setPaper('a4', 'landscape');
 
         $filename = 'laporan-kematian-' . $start->format('Ymd') . '-' . $end->format('Ymd') . '.pdf';
 
         return $pdf->download($filename);
+    }
+
+    private function getTtdKelianBase64(): ?string
+    {
+        $path = storage_path('app/public/signatures/ttd-kelian.png');
+
+        if (!is_file($path)) {
+            return null;
+        }
+
+        return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
     }
 
     private function writeLog(string $action, string $description, Request $request): void
