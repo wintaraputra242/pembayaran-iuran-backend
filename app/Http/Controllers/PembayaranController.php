@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
-use Midtrans\Notification;
 
 class PembayaranController extends Controller
 {
@@ -356,105 +355,6 @@ class PembayaranController extends Controller
 
         return ApiResponse::success($warga, 'Daftar warga yang belum melakukan pembayaran berhasil diambil.');
     }
-
-    // public function wargaUnpaidPayment(Request $request): JsonResponse
-    // {
-    //     $validator = Validator::make($request->all(), [
-    //         'id_informasi_iuran' => 'required|exists:informasi_iuran,id',
-    //         'bulan'              => 'nullable|integer|min:1|max:12',
-    //         'nama_warga'         => 'nullable|string',
-    //     ], [
-    //         'id_informasi_iuran.required' => 'Informasi iuran wajib dipilih.',
-    //         'id_informasi_iuran.exists'   => 'Informasi iuran yang dipilih tidak valid atau tidak ditemukan.',
-    //         'bulan.integer'               => 'Bulan harus berupa angka.',
-    //         'bulan.min'                   => 'Pilihan bulan minimal adalah bulan ke-1 (Januari).',
-    //         'bulan.max'                   => 'Pilihan bulan maksimal adalah bulan ke-12 (Desember).',
-    //         'nama_warga.string'           => 'Nama warga harus berupa teks.',
-    //     ]);
-
-    //     if ($validator->fails()) {
-    //         return ApiResponse::error('Validasi gagal.', $validator->errors()->first(), 422);
-    //     }
-
-    //     $data  = $validator->validated();
-    //     $iuran = InformasiIuran::find($data['id_informasi_iuran']);
-
-    //     if (!$iuran) {
-    //         return ApiResponse::error('Iuran tidak ditemukan.', null, 404);
-    //     }
-
-    //     if ($iuran->jenis_iuran === 'bulanan' && empty($data['bulan'])) {
-    //         return ApiResponse::error('Bulan wajib diisi untuk iuran bulanan.', null, 422);
-    //     }
-
-    //     $user  = Auth::user();
-    //     $bulan = $data['bulan'] ?? null;
-
-    //     $query = Warga::with(['anggotaRegu.regu'])
-    //         ->whereNull('deleted_at')
-    //         // Belum bayar
-    //         ->whereDoesntHave('pembayaran', function ($q) use ($data, $iuran) {
-    //             $q->where('id_informasi_iuran', $data['id_informasi_iuran'])
-    //                 ->whereIn('status_bayar', ['approved', 'pending']);
-
-    //             if ($iuran->jenis_iuran === 'bulanan') {
-    //                 $q->whereJsonContains('bulan', $data['bulan']);
-    //             }
-    //         })
-    //         ->where(function ($q) use ($iuran, $bulan) {
-    //             // Warga aktif
-    //             $q->where(function ($q1) use ($iuran, $bulan) {
-    //                 $q1->where('status_keaktifan', 'aktif');
-
-    //                 // Filter warga baru — hanya wajib bayar mulai bulan bergabung
-    //                 if ($iuran->jenis_iuran === 'bulanan' && $bulan) {
-    //                     $tahunPeriode = (int) $iuran->periode;
-    //                     $q1->where(function ($q2) use ($bulan, $tahunPeriode) {
-    //                         // Bergabung sebelum tahun periode — wajib bayar semua bulan
-    //                         $q2->whereYear('created_at', '<', $tahunPeriode)
-    //                             // Bergabung di tahun periode — wajib bayar mulai bulan bergabung
-    //                             ->orWhere(function ($q3) use ($bulan, $tahunPeriode) {
-    //                                 $q3->whereYear('created_at', $tahunPeriode)
-    //                                     ->whereMonth('created_at', '<=', $bulan);
-    //                             });
-    //                     });
-    //                 }
-    //             })
-    //                 // Warga nonaktif yang masih punya tunggakan sebelum nonaktif
-    //                 ->orWhere(function ($q1) use ($iuran, $bulan) {
-    //                     $q1->where('status_keaktifan', 'tidak_aktif')
-    //                         ->whereNotNull('tanggal_nonaktif');
-
-    //                     if ($iuran->jenis_iuran === 'bulanan' && $bulan) {
-    //                         $tahunPeriode = (int) $iuran->periode;
-    //                         // Nonaktif setelah bulan yang dicek — masih wajib bayar
-    //                         $q1->where(function ($q2) use ($bulan, $tahunPeriode) {
-    //                             $q2->whereYear('tanggal_nonaktif', '>', $tahunPeriode)
-    //                                 ->orWhere(function ($q3) use ($bulan, $tahunPeriode) {
-    //                                     $q3->whereYear('tanggal_nonaktif', $tahunPeriode)
-    //                                         ->whereMonth('tanggal_nonaktif', '>', $bulan);
-    //                                 });
-    //                         });
-    //                     }
-    //                 });
-    //         });
-
-    //     if ($user->role === 'ketua_regu') {
-    //         $query->whereHas(
-    //             'anggotaRegu.regu',
-    //             fn($q) => $q->where('id_user', $user->id)
-    //         );
-    //     }
-
-    //     if ($request->filled('nama_warga')) {
-    //         $query->where('nama_warga', 'like', '%' . $request->nama_warga . '%');
-    //     }
-
-    //     $perPage = $request->get('per_page', 10);
-    //     $warga   = $query->orderBy('nama_warga')->paginate($perPage);
-
-    //     return ApiResponse::success($warga, 'Daftar warga yang belum melakukan pembayaran berhasil diambil.');
-    // }
 
     public function historyAlreadyPaid(Request $request): JsonResponse
     {
@@ -889,93 +789,6 @@ class PembayaranController extends Controller
         // );
 
         return ApiResponse::success(null, 'Notifikasi iuran dikirim satu per satu.');
-    }
-
-    public function handleNotification(Request $request): \Illuminate\Http\JsonResponse
-    {
-        try {
-            DB::beginTransaction();
-
-            $notification = new Notification;
-
-            $transactionStatus = $notification->transaction_status;
-            $paymentType = $notification->payment_type;
-            $orderId = $notification->order_id;
-            $transactionId = $notification->transaction_id;
-            $vaNumbers = $notification->va_numbers ?? null;
-            $qrString = $notification->qr_string ?? null;
-            $fraudStatus = $notification->fraud_status ?? null;
-
-            $pembayaran = Pembayaran::with(['informasiIuran', 'warga.user.devices'])
-                ->where('midtrans_order_id', $orderId)
-                ->first();
-
-            if (! $pembayaran) {
-                return response()->json(['message' => 'Order tidak ditemukan.'], 404);
-            }
-
-            $statusSebelumnya = $pembayaran->status_bayar;
-
-            $pembayaran->status_bayar = match (true) {
-                $transactionStatus === 'capture' && $fraudStatus === 'accept' => 'paid',
-                $transactionStatus === 'capture' && $fraudStatus === 'challenge' => 'waiting_payment',
-                $transactionStatus === 'settlement' => 'paid',
-                $transactionStatus === 'pending' => 'waiting_payment',
-                $transactionStatus === 'deny' => 'failed',
-                $transactionStatus === 'expire' => 'expired',
-                $transactionStatus === 'cancel' => 'canceled',
-                default => $pembayaran->status_bayar,
-            };
-
-            $pembayaran->midtrans_transaction_id = $transactionId;
-            $pembayaran->midtrans_payment_type = $paymentType;
-            $pembayaran->midtrans_va_number = $vaNumbers[0]['va_number'] ?? null;
-            $pembayaran->midtrans_qr_string = $qrString;
-            $pembayaran->midtrans_raw_response = json_encode($notification);
-            $pembayaran->save();
-
-            ActivityLog::create([
-                'id_user' => null,
-                'nama_user_snapshot' => 'midtrans-webhook',
-                'action' => 'webhook_midtrans',
-                'description' => "Webhook Midtrans: order {$orderId} → status {$pembayaran->status_bayar}.",
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-            ]);
-
-            DB::commit();
-
-            if ($pembayaran->warga && $statusSebelumnya !== $pembayaran->status_bayar) {
-                $judul = $pembayaran->informasiIuran?->judul_iuran;
-
-                $pesanStatus = match ($pembayaran->status_bayar) {
-                    'paid' => ['Pembayaran Berhasil ✅', "Pembayaran {$judul} Anda telah berhasil diterima."],
-                    'failed' => ['Pembayaran Gagal ❌', "Pembayaran {$judul} Anda gagal diproses. Silakan coba lagi."],
-                    'expired' => ['Pembayaran Kedaluwarsa ⏰', "Batas waktu pembayaran {$judul} Anda telah habis. Silakan lakukan pembayaran ulang."],
-                    'canceled' => ['Pembayaran Dibatalkan ⚠️', "Pembayaran {$judul} Anda telah dibatalkan."],
-                    default => null,
-                };
-
-                if ($pesanStatus) {
-                    $this->notifyWarga(
-                        $pembayaran->warga,
-                        $pesanStatus[0],
-                        $pesanStatus[1],
-                        $pembayaran->status_bayar,
-                        ['pembayaran_id' => $pembayaran->id, 'nik' => $pembayaran->warga->nik]
-                    );
-                }
-            }
-
-            return response()->json(['message' => 'OK'], 200);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-
-            return response()->json([
-                'message' => 'Terjadi kesalahan webhook.',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
     }
 
     public function getPembayaranByRegu(Request $request)

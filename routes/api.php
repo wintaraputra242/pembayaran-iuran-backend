@@ -15,7 +15,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DropdownController;
 use App\Http\Controllers\InformasiIuranController;
 use App\Http\Controllers\LaporanController;
-use App\Http\Controllers\MidtransController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\QrSettingController;
@@ -34,14 +33,6 @@ Route::prefix('client/auth')->controller(ClientAuthController::class)->group(fun
     Route::post('/check-nik', 'checkNik');
     Route::post('/login', 'login');
 });
-
-// Midtrans callback (public, tidak perlu auth)
-Route::prefix('midtrans')->controller(MidtransController::class)->group(function () {
-    Route::post('/callback', 'handleCallback');
-});
-
-// Pembayaran Midtrans notification (public)
-Route::post('/pembayaran-midtrans-notification', [PembayaranController::class, 'handleNotification']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -155,13 +146,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', 'destroy');
         Route::get('/active', 'active');
         Route::get('/download/{id}', 'download');
-    });
-
-    // Midtrans (authenticated)
-    Route::prefix('midtrans')->controller(MidtransController::class)->group(function () {
-        Route::post('/pay', 'createPayment');
-        Route::get('/status/{orderId}', 'checkStatus');
-        Route::post('/cancel/{orderId}', 'cancelPayment');
     });
 
     // Laporan
