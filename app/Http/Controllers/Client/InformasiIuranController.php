@@ -2,28 +2,27 @@
 
 namespace App\Http\Controllers\Client;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Controller;
 use App\Models\InformasiIuran;
 use App\Models\Pembayaran;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class InformasiIuranController extends Controller
 {
-
     public function show(Request $request, $id)
     {
-        $user  = $request->user();
+        $user = $request->user();
         $warga = $user->warga;
 
         $iuran = InformasiIuran::with('penanggungJawab:nik,nama_warga')->find($id);
 
-        if (!$iuran) {
+        if (! $iuran) {
             return ApiResponse::error('Informasi iuran tidak ditemukan.', null, 404);
         }
 
-        if (!$warga) {
+        if (! $warga) {
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
@@ -42,10 +41,10 @@ class InformasiIuranController extends Controller
 
     public function getIuranWithStatus(Request $request): JsonResponse
     {
-        $user  = $request->user();
+        $user = $request->user();
         $warga = $user->warga;
 
-        if (!$warga) {
+        if (! $warga) {
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
@@ -65,7 +64,7 @@ class InformasiIuranController extends Controller
                 'pembayaran as sudah_bayar' => function ($q) use ($warga) {
                     $q->where('nik', $warga->nik)
                         ->whereIn('status_bayar', ['approved', 'pending']);
-                }
+                },
             ]);
 
         // Filter iuran bulanan — hanya tampilkan periode >= tahun bergabung
@@ -161,11 +160,13 @@ class InformasiIuranController extends Controller
             }
 
             unset($iuran->sudah_bayar);
+
             return $iuran;
         });
 
         return ApiResponse::success($data, 'Data informasi iuran berhasil diambil.');
     }
+
     /**
      * Prioritas status: approved > pending > rejected
      */
@@ -174,7 +175,7 @@ class InformasiIuranController extends Controller
         $priority = ['approved' => 3, 'pending' => 2, 'rejected' => 1];
 
         return collect($statuses)
-            ->sortByDesc(fn($s) => $priority[$s] ?? 0)
+            ->sortByDesc(fn ($s) => $priority[$s] ?? 0)
             ->first();
     }
 
@@ -187,10 +188,10 @@ class InformasiIuranController extends Controller
         );
 
         $bestRecord = $semuaPembayaran
-            ->sortByDesc(fn($p) => $priority[$p->status_bayar] ?? 0)
+            ->sortByDesc(fn ($p) => $priority[$p->status_bayar] ?? 0)
             ->first();
 
-        $iuran->status_bayar  = $bestStatus ?? 'belum_bayar';
+        $iuran->status_bayar = $bestStatus ?? 'belum_bayar';
         $iuran->tanggal_bayar = $bestRecord?->tanggal_bayar;
         $iuran->id_pembayaran = $bestRecord?->id;
 
@@ -204,18 +205,19 @@ class InformasiIuranController extends Controller
         $statusPerBulan = $semuaPembayaran
             ->groupBy('bulan')
             ->map(function ($records) use ($priority) {
-                $best = $records->sortByDesc(fn($p) => $priority[$p->status_bayar] ?? 0)->first();
+                $best = $records->sortByDesc(fn ($p) => $priority[$p->status_bayar] ?? 0)->first();
+
                 return [
-                    'status'        => $best->status_bayar,
+                    'status' => $best->status_bayar,
                     'id_pembayaran' => $best->id,
                     'tanggal_bayar' => $best->tanggal_bayar,
                 ];
             });
 
-        $bulanApproved  = $statusPerBulan->filter(fn($b) => $b['status'] === 'approved')->keys()->sort()->values();
-        $bulanPending   = $statusPerBulan->filter(fn($b) => $b['status'] === 'pending')->keys()->sort()->values();
-        $bulanRejected  = $statusPerBulan->filter(fn($b) => $b['status'] === 'rejected')->keys()->sort()->values();
-        $bulanCancelled = $statusPerBulan->filter(fn($b) => $b['status'] === 'cancelled')->keys()->sort()->values();
+        $bulanApproved = $statusPerBulan->filter(fn ($b) => $b['status'] === 'approved')->keys()->sort()->values();
+        $bulanPending = $statusPerBulan->filter(fn ($b) => $b['status'] === 'pending')->keys()->sort()->values();
+        $bulanRejected = $statusPerBulan->filter(fn ($b) => $b['status'] === 'rejected')->keys()->sort()->values();
+        $bulanCancelled = $statusPerBulan->filter(fn ($b) => $b['status'] === 'cancelled')->keys()->sort()->values();
 
         $totalBulanTerhitung = $bulanApproved->count() + $bulanPending->count();
 
@@ -224,8 +226,8 @@ class InformasiIuranController extends Controller
         // (logic sudah di-extract ke Warga::hitungRentangBulanWajib()
         // supaya konsisten dengan endpoint lain seperti getDropdownWargaForPembayaran & getPaidMonth)
         // -------------------------------------------------------
-        $tahunPeriode  = (int) $iuran->periode;
-        $bulanMulai    = 1;
+        $tahunPeriode = (int) $iuran->periode;
+        $bulanMulai = 1;
         $bulanMaksimal = 12;
 
         if ($warga) {
@@ -251,19 +253,19 @@ class InformasiIuranController extends Controller
             ->sortByDesc('tanggal_bayar')
             ->first();
 
-        $iuran->status_bayar          = $statusUtama;
-        $iuran->bulan_approved        = $bulanApproved;
-        $iuran->bulan_pending         = $bulanPending;
-        $iuran->bulan_rejected        = $bulanRejected;
-        $iuran->bulan_cancelled       = $bulanCancelled;
-        $iuran->total_bulan_approved  = $bulanApproved->count();
-        $iuran->total_bulan_pending   = $bulanPending->count();
+        $iuran->status_bayar = $statusUtama;
+        $iuran->bulan_approved = $bulanApproved;
+        $iuran->bulan_pending = $bulanPending;
+        $iuran->bulan_rejected = $bulanRejected;
+        $iuran->bulan_cancelled = $bulanCancelled;
+        $iuran->total_bulan_approved = $bulanApproved->count();
+        $iuran->total_bulan_pending = $bulanPending->count();
         $iuran->total_bulan_terhitung = $totalBulanTerhitung;
-        $iuran->total_bulan_wajib     = $totalBulanWajib;
-        $iuran->tanggal_bayar         = $lastRecord?->tanggal_bayar;
-        $iuran->id_pembayaran         = $lastRecord?->id;
-        $iuran->bulan_mulai_bayar     = $bulanMulai;
-        $iuran->bulan_maksimal_bayar  = $bulanMaksimal;
+        $iuran->total_bulan_wajib = $totalBulanWajib;
+        $iuran->tanggal_bayar = $lastRecord?->tanggal_bayar;
+        $iuran->id_pembayaran = $lastRecord?->id;
+        $iuran->bulan_mulai_bayar = $bulanMulai;
+        $iuran->bulan_maksimal_bayar = $bulanMaksimal;
 
         return $iuran;
     }

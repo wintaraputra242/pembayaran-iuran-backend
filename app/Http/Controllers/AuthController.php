@@ -2,31 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
 use App\Models\ActivityLog;
 use App\Models\UserDevice;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\JsonResponse;
 
 class AuthController extends Controller
 {
-
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'username'  => 'required|string',
-            'password'  => 'required|string',
+            'username' => 'required|string',
+            'password' => 'required|string',
         ], [
             'username.required' => 'Username wajib diisi.',
-            'username.string'   => 'Username harus berupa teks.',
+            'username.string' => 'Username harus berupa teks.',
             'password.required' => 'Password wajib diisi.',
-            'password.string'   => 'Password harus berupa teks.',
+            'password.string' => 'Password harus berupa teks.',
         ]);
 
-        if (!Auth::attempt($credentials)) {
+        if (! Auth::attempt($credentials)) {
             $this->writeLog(null, 'login', "Login gagal untuk username: {$credentials['username']}", $request);
+
             return ApiResponse::error('Login gagal', 'Username atau password salah', 401);
         }
 
@@ -36,18 +36,21 @@ class AuthController extends Controller
         if ($user->trashed()) {
             Auth::logout();
             $this->writeLog(null, 'login', "Login ditolak — akun terhapus: {$user->username}", $request);
+
             return ApiResponse::error('Login gagal', 'Akun tidak ditemukan', 401);
         }
 
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             Auth::logout();
             $this->writeLog($user->id, 'login', "Login ditolak — akun nonaktif: {$user->username}", $request);
+
             return ApiResponse::error('Akses ditolak', 'Akun Anda telah dinonaktifkan. Hubungi administrator.', 403);
         }
 
-        if (!in_array($user->role, ['admin', 'ketua_regu'])) {
+        if (! in_array($user->role, ['admin', 'ketua_regu'])) {
             Auth::logout();
             $this->writeLog($user->id, 'login', "Login ditolak — role tidak diizinkan: {$user->role}", $request);
+
             return ApiResponse::error('Akses ditolak', 'Role tidak diizinkan untuk mengakses aplikasi ini', 403);
         }
 
@@ -57,13 +60,13 @@ class AuthController extends Controller
         if ($request->filled('fcm_token')) {
             UserDevice::updateOrCreate(
                 [
-                    'user_id'  => $user->id,
+                    'user_id' => $user->id,
                     'app_type' => 'admin',
                 ],
                 [
-                    'fcm_token'    => $request->fcm_token,
-                    'device_name'  => $request->header('User-Agent'),
-                    'platform'     => $request->input('platform', 'web'),
+                    'fcm_token' => $request->fcm_token,
+                    'device_name' => $request->header('User-Agent'),
+                    'platform' => $request->input('platform', 'web'),
                     'last_used_at' => now(),
                 ]
             );
@@ -72,9 +75,9 @@ class AuthController extends Controller
         $this->writeLog($user->id, 'login', "Login berhasil: {$user->username} [{$user->role}]", $request);
 
         return ApiResponse::success([
-            'user'         => $this->formatUser($user),
+            'user' => $this->formatUser($user),
             'access_token' => $token,
-            'token_type'   => 'Bearer',
+            'token_type' => 'Bearer',
         ], 'Login berhasil');
     }
 
@@ -108,7 +111,6 @@ class AuthController extends Controller
         return ApiResponse::success(null, 'Logout dari semua perangkat berhasil');
     }
 
-
     public function user(Request $request): JsonResponse
     {
         return ApiResponse::success(
@@ -120,10 +122,10 @@ class AuthController extends Controller
     private function formatUser($user): array
     {
         return [
-            'id'       => $user->id,
-            'name'     => $user->name,
+            'id' => $user->id,
+            'name' => $user->name,
             'username' => $user->username,
-            'role'     => $user->role,
+            'role' => $user->role,
             'is_active' => $user->is_active,
         ];
     }
@@ -132,14 +134,14 @@ class AuthController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'           => $userId,
+                'id_user' => $userId,
                 'nama_user_snapshot' => $userId
                     ? optional(Auth::user())->name
                     : null,
-                'action'            => $action,
-                'description'       => $description,
-                'ip_address'        => $request->ip(),
-                'user_agent'        => $request->userAgent(),
+                'action' => $action,
+                'description' => $description,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");

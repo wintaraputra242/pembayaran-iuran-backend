@@ -25,7 +25,7 @@ class ReguController extends Controller
         $query = Regu::with('ketuaRegu:id,name,username,is_active');
 
         if ($request->filled('nama_regu')) {
-            $query->where('nama_regu', 'LIKE', '%' . $request->nama_regu . '%');
+            $query->where('nama_regu', 'LIKE', '%'.$request->nama_regu.'%');
         }
 
         if ($request->filled('status_keaktifan')) {
@@ -55,7 +55,7 @@ class ReguController extends Controller
             ->withTrashed()
             ->find($id);
 
-        if (!$regu) {
+        if (! $regu) {
             return ApiResponse::error('Data regu tidak ditemukan.', null, 404);
         }
 
@@ -73,9 +73,9 @@ class ReguController extends Controller
             ],
         ], [
             'nama_regu.required' => 'Nama regu wajib diisi.',
-            'nama_regu.string'   => 'Nama regu harus berupa teks.',
-            'nama_regu.max'      => 'Nama regu maksimal 100 karakter.',
-            'nama_regu.unique'   => 'Nama regu sudah digunakan.',
+            'nama_regu.string' => 'Nama regu harus berupa teks.',
+            'nama_regu.max' => 'Nama regu maksimal 100 karakter.',
+            'nama_regu.unique' => 'Nama regu sudah digunakan.',
         ]);
 
         if ($validator->fails()) {
@@ -86,18 +86,18 @@ class ReguController extends Controller
 
         try {
             $regu = Regu::create([
-                'nama_regu'        => $request->nama_regu,
+                'nama_regu' => $request->nama_regu,
                 'status_keaktifan' => 'aktif',
             ]);
 
-            $username      = Str::slug($regu->nama_regu, '_');
-            $plainPassword = $username . now()->format('d') . now()->format('s');
+            $username = Str::slug($regu->nama_regu, '_');
+            $plainPassword = $username.now()->format('d').now()->format('s');
 
             $user = User::create([
-                'name'      => $regu->nama_regu,
-                'username'  => $username,
-                'password'  => Hash::make($plainPassword),
-                'role'      => 'ketua_regu',
+                'name' => $regu->nama_regu,
+                'username' => $username,
+                'password' => Hash::make($plainPassword),
+                'role' => 'ketua_regu',
                 'is_active' => true,
             ]);
 
@@ -117,6 +117,7 @@ class ReguController extends Controller
             return ApiResponse::success(null, 'Regu beserta akunnya berhasil dibuat.', 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
     }
@@ -125,7 +126,7 @@ class ReguController extends Controller
     {
         $regu = Regu::find($id);
 
-        if (!$regu) {
+        if (! $regu) {
             return ApiResponse::error('Data regu tidak ditemukan.', null, 404);
         }
 
@@ -138,9 +139,9 @@ class ReguController extends Controller
             ],
         ], [
             'nama_regu.required' => 'Nama regu wajib diisi.',
-            'nama_regu.string'   => 'Nama regu harus berupa teks.',
-            'nama_regu.max'      => 'Nama regu maksimal 100 karakter.',
-            'nama_regu.unique'   => 'Nama regu sudah digunakan.',
+            'nama_regu.string' => 'Nama regu harus berupa teks.',
+            'nama_regu.max' => 'Nama regu maksimal 100 karakter.',
+            'nama_regu.unique' => 'Nama regu sudah digunakan.',
         ]);
 
         if ($validator->fails()) {
@@ -157,11 +158,11 @@ class ReguController extends Controller
             $user = $regu->id_user ? User::find($regu->id_user) : null;
 
             if ($user) {
-                $username      = Str::slug($request->nama_regu, '_');
-                $plainPassword = $username . now()->format('d') . now()->format('s');
+                $username = Str::slug($request->nama_regu, '_');
+                $plainPassword = $username.now()->format('d').now()->format('s');
 
                 $user->update([
-                    'name'     => $request->nama_regu,
+                    'name' => $request->nama_regu,
                     'username' => $username,
                     'password' => Hash::make($plainPassword),
                 ]);
@@ -185,6 +186,7 @@ class ReguController extends Controller
             );
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
     }
@@ -193,7 +195,7 @@ class ReguController extends Controller
     {
         $regu = Regu::find($id);
 
-        if (!$regu) {
+        if (! $regu) {
             return ApiResponse::error('Data regu tidak ditemukan.', null, 404);
         }
 
@@ -224,6 +226,7 @@ class ReguController extends Controller
             return ApiResponse::success(null, 'Regu berhasil dinonaktifkan beserta seluruh anggotanya.');
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
     }
@@ -234,7 +237,7 @@ class ReguController extends Controller
             'status_keaktifan' => ['required', Rule::in(['aktif', 'tidak_aktif'])],
         ], [
             'status_keaktifan.required' => 'Status keaktifan wajib diisi.',
-            'status_keaktifan.in'       => 'Status keaktifan hanya boleh: aktif atau tidak_aktif.',
+            'status_keaktifan.in' => 'Status keaktifan hanya boleh: aktif atau tidak_aktif.',
         ]);
 
         if ($validator->fails()) {
@@ -243,7 +246,7 @@ class ReguController extends Controller
 
         $regu = Regu::withTrashed()->find($id);
 
-        if (!$regu) {
+        if (! $regu) {
             return ApiResponse::error('Data tidak ditemukan.', 'Regu tidak ditemukan.', 404);
         }
 
@@ -291,6 +294,7 @@ class ReguController extends Controller
             return ApiResponse::success(null, 'Status keaktifan berhasil diperbarui.');
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
     }
@@ -310,7 +314,7 @@ class ReguController extends Controller
             }
         }
 
-        $passwords['regu_' . $reguId] = [
+        $passwords['regu_'.$reguId] = [
             'username' => $username,
             'password' => $plainPassword,
         ];
@@ -322,12 +326,12 @@ class ReguController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::user()?->id,
+                'id_user' => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
-                'action'             => $action,
-                'description'        => $description,
-                'ip_address'         => $request->ip(),
-                'user_agent'         => $request->userAgent(),
+                'action' => $action,
+                'description' => $description,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");

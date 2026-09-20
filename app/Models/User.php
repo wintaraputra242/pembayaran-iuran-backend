@@ -21,10 +21,10 @@ class User extends Authenticatable
         'no_hp',      // ← tambah
         'password',
         'role',
-        'is_active'
+        'is_active',
     ];
 
-    protected $hidden   = ['password', 'deleted_at'];
+    protected $hidden = ['password', 'deleted_at'];
 
     public function warga(): HasOne
     {

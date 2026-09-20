@@ -3,18 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Regu;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\ActivityLog;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -25,8 +24,8 @@ class UserController extends Controller
 
         if ($request->filled('keyword')) {
             $query->where(function ($q) use ($request) {
-                $q->where('name', 'LIKE', '%' . $request->keyword . '%')
-                    ->orWhere('username', 'LIKE', '%' . $request->keyword . '%');
+                $q->where('name', 'LIKE', '%'.$request->keyword.'%')
+                    ->orWhere('username', 'LIKE', '%'.$request->keyword.'%');
             });
         }
 
@@ -37,7 +36,7 @@ class UserController extends Controller
             $query->whereIn('role', $allowedRoles);
         }
 
-        if (!$request->boolean('include_inactive')) {
+        if (! $request->boolean('include_inactive')) {
             $query->where('is_active', true);
         }
 
@@ -56,7 +55,7 @@ class UserController extends Controller
         $user = User::select(['id', 'name', 'username', 'role', 'is_active', 'created_at'])
             ->find($id);
 
-        if (!$user) {
+        if (! $user) {
             return ApiResponse::error('Not Found', 'User tidak ditemukan.', 404);
         }
 
@@ -67,25 +66,25 @@ class UserController extends Controller
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return ApiResponse::error('Not Found', 'User tidak ditemukan.', 404);
         }
 
         $validated = $request->validate([
-            'name'      => 'sometimes|string|max:255',
-            'username'  => ['sometimes', 'string', 'max:255', Rule::unique('users', 'username')->ignore($user->id)],
-            'password'  => 'sometimes|string|min:6',
-            'role'      => ['sometimes', Rule::in(['admin', 'ketua_regu'])],
+            'name' => 'sometimes|string|max:255',
+            'username' => ['sometimes', 'string', 'max:255', Rule::unique('users', 'username')->ignore($user->id)],
+            'password' => 'sometimes|string|min:6',
+            'role' => ['sometimes', Rule::in(['admin', 'ketua_regu'])],
             'is_active' => 'sometimes|boolean',
         ], [
-            'name.string'       => 'Nama harus berupa teks.',
-            'name.max'          => 'Nama tidak boleh lebih dari 255 karakter.',
-            'username.string'   => 'Username harus berupa teks.',
-            'username.max'      => 'Username tidak boleh lebih dari 255 karakter.',
-            'username.unique'   => 'Username sudah digunakan oleh pengguna lain.',
-            'password.string'   => 'Password harus berupa teks.',
-            'password.min'      => 'Password harus minimal 6 karakter.',
-            'role.in'           => 'Role yang dipilih tidak valid. Pilih antara admin atau ketua regu.',
+            'name.string' => 'Nama harus berupa teks.',
+            'name.max' => 'Nama tidak boleh lebih dari 255 karakter.',
+            'username.string' => 'Username harus berupa teks.',
+            'username.max' => 'Username tidak boleh lebih dari 255 karakter.',
+            'username.unique' => 'Username sudah digunakan oleh pengguna lain.',
+            'password.string' => 'Password harus berupa teks.',
+            'password.min' => 'Password harus minimal 6 karakter.',
+            'role.in' => 'Role yang dipilih tidak valid. Pilih antara admin atau ketua regu.',
             'is_active.boolean' => 'Status aktif harus berupa pilihan true atau false (boolean).',
         ]);
 
@@ -129,7 +128,7 @@ class UserController extends Controller
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return ApiResponse::error('Not Found', 'User tidak ditemukan.', 404);
         }
 
@@ -156,7 +155,7 @@ class UserController extends Controller
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return ApiResponse::error('Not Found', 'User tidak ditemukan.', 404);
         }
 
@@ -164,10 +163,10 @@ class UserController extends Controller
             return ApiResponse::error('Forbidden', 'Tidak dapat menonaktifkan akun yang sedang digunakan.', 403);
         }
 
-        $user->is_active = !$user->is_active;
+        $user->is_active = ! $user->is_active;
         $user->save();
 
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             $user->tokens()->delete();
         }
 
@@ -194,7 +193,7 @@ class UserController extends Controller
         // Eksplisit pakai disk 'local' (storage/app/private) — JANGAN pakai
         // Storage:: default, karena FILESYSTEM_DISK di .env production
         // adalah 'public', yang salah tempat untuk file sensitif seperti ini.
-        if (!Storage::disk('local')->exists($passwordPath)) {
+        if (! Storage::disk('local')->exists($passwordPath)) {
             return ApiResponse::error(
                 'File tidak ditemukan.',
                 'Data password belum tersedia.',
@@ -227,14 +226,14 @@ class UserController extends Controller
         }
 
         $rows = $reguList->map(function ($regu, $index) use ($passwords) {
-            $key = 'regu_' . $regu->id;
+            $key = 'regu_'.$regu->id;
 
             return [
-                'no'       => $index + 1,
-                'regu'     => $regu->nama_regu,
+                'no' => $index + 1,
+                'regu' => $regu->nama_regu,
                 'username' => $passwords[$key]['username'] ?? '-',
                 'password' => $passwords[$key]['password'] ?? '-',
-                'ketua'    => $regu->ketuaRegu?->name ?? '(belum ditentukan)',
+                'ketua' => $regu->ketuaRegu?->name ?? '(belum ditentukan)',
             ];
         })->toArray();
 
@@ -242,7 +241,7 @@ class UserController extends Controller
             $pdf = Pdf::loadView('pdf.credential-global-table', ['rows' => $rows]);
             $output = $pdf->download('credential-regu.pdf');
         } catch (\Throwable $e) {
-            Log::error('Gagal generate PDF kredensial regu: ' . $e->getMessage());
+            Log::error('Gagal generate PDF kredensial regu: '.$e->getMessage());
 
             return ApiResponse::error(
                 'Gagal membuat PDF.',
@@ -265,18 +264,18 @@ class UserController extends Controller
     private function writeLog(
         int|string|null $userId,
         ?string $namaUser,
-        string  $action,
-        string  $description,
+        string $action,
+        string $description,
         Request $request
     ): void {
         try {
             ActivityLog::create([
-                'id_user'            => $userId,
+                'id_user' => $userId,
                 'nama_user_snapshot' => $namaUser,
-                'action'             => $action,
-                'description'        => $description,
-                'ip_address'         => $request->ip(),
-                'user_agent'         => $request->userAgent(),
+                'action' => $action,
+                'description' => $description,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");
@@ -298,7 +297,7 @@ class UserController extends Controller
             }
         }
 
-        $passwords['regu_' . $reguId] = [
+        $passwords['regu_'.$reguId] = [
             'username' => $username,
             'password' => $plainPassword,
         ];

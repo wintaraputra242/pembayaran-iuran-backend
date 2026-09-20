@@ -3,15 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
 use App\Models\QrSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver;
 use Illuminate\Support\Str;
+use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 
 class QrSettingController extends Controller
 {
@@ -20,15 +19,15 @@ class QrSettingController extends Controller
         $qris = QrSetting::with('uploadedBy')->orderBy('is_active', 'desc')->latest()->get();
 
         return ApiResponse::success(
-            $qris->map(fn($item) => [
-                'id'             => $item->id,
-                'image'          => asset('storage/' . $item->image),
-                'nama_rekening'  => $item->nama_rekening,
+            $qris->map(fn ($item) => [
+                'id' => $item->id,
+                'image' => asset('storage/'.$item->image),
+                'nama_rekening' => $item->nama_rekening,
                 'nomor_rekening' => $item->nomor_rekening,
-                'keterangan'     => $item->keterangan,
-                'is_active'      => $item->is_active,
-                'uploaded_by'    => $item->uploadedBy?->name,
-                'created_at'     => $item->created_at?->toDateTimeString(),
+                'keterangan' => $item->keterangan,
+                'is_active' => $item->is_active,
+                'uploaded_by' => $item->uploadedBy?->name,
+                'created_at' => $item->created_at?->toDateTimeString(),
             ]),
             'success'
         );
@@ -37,10 +36,10 @@ class QrSettingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'image'          => 'required|image|mimes:jpg,jpeg,png,webp|max:5000',
-            'nama_rekening'  => 'nullable|string|max:255',
+            'image' => 'required|image|mimes:jpg,jpeg,png,webp|max:5000',
+            'nama_rekening' => 'nullable|string|max:255',
             'nomor_rekening' => 'nullable|string|max:255',
-            'keterangan'     => 'nullable|string',
+            'keterangan' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -48,39 +47,39 @@ class QrSettingController extends Controller
         try {
             QrSetting::where('is_active', true)->update(['is_active' => false]);
 
-            $file      = $request->file('image');
-            $filename  = 'qris-' . time() . '-' . Str::random(6) . '.jpg';
-            $manager   = new ImageManager(new Driver());
-            $image     = $manager->read($file)->toJpeg(80);
-            Storage::disk('public')->put('qris/' . $filename, (string) $image);
-            $imagePath = 'qris/' . $filename;
+            $file = $request->file('image');
+            $filename = 'qris-'.time().'-'.Str::random(6).'.jpg';
+            $manager = new ImageManager(new Driver);
+            $image = $manager->read($file)->toJpeg(80);
+            Storage::disk('public')->put('qris/'.$filename, (string) $image);
+            $imagePath = 'qris/'.$filename;
 
             $qris = QrSetting::create([
-                'image'          => $imagePath,
-                'nama_rekening'  => $request->nama_rekening,
+                'image' => $imagePath,
+                'nama_rekening' => $request->nama_rekening,
                 'nomor_rekening' => $request->nomor_rekening,
-                'keterangan'     => $request->keterangan,
-                'is_active'      => true,
-                'uploaded_by'    => Auth::user()->id,
+                'keterangan' => $request->keterangan,
+                'is_active' => true,
+                'uploaded_by' => Auth::user()->id,
             ]);
 
             DB::commit();
 
             return ApiResponse::success([
-                'id'             => $qris->id,
-                'image'          => asset('storage/' . $qris->image),
-                'nama_rekening'  => $qris->nama_rekening,
+                'id' => $qris->id,
+                'image' => asset('storage/'.$qris->image),
+                'nama_rekening' => $qris->nama_rekening,
                 'nomor_rekening' => $qris->nomor_rekening,
-                'keterangan'     => $qris->keterangan,
-                'is_active'      => $qris->is_active,
-                'uploaded_by'    => Auth::user()->name,
+                'keterangan' => $qris->keterangan,
+                'is_active' => $qris->is_active,
+                'uploaded_by' => Auth::user()->name,
             ], 'QRIS berhasil ditambahkan.');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return ApiResponse::error($e, null, 500);
         }
     }
-
 
     public function setActive(int $id)
     {
@@ -89,7 +88,7 @@ class QrSettingController extends Controller
         try {
             $qris = QrSetting::find($id);
 
-            if (!$qris) {
+            if (! $qris) {
                 return ApiResponse::error('QRIS tidak ditemukan.', null, 404);
             }
 
@@ -101,6 +100,7 @@ class QrSettingController extends Controller
             return ApiResponse::success(null, 'QRIS aktif berhasil diubah.');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return ApiResponse::error('Gagal mengubah QRIS aktif.', null, 500);
         }
     }
@@ -112,7 +112,7 @@ class QrSettingController extends Controller
         try {
             $qris = QrSetting::find($id);
 
-            if (!$qris) {
+            if (! $qris) {
                 return ApiResponse::error('QRIS tidak ditemukan.', null, 404);
             }
 
@@ -128,6 +128,7 @@ class QrSettingController extends Controller
             return ApiResponse::success(null, 'QRIS berhasil dihapus.');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return ApiResponse::error('Gagal menghapus QRIS.', null, 500);
         }
     }
@@ -136,16 +137,16 @@ class QrSettingController extends Controller
     {
         $qris = QrSetting::where('is_active', true)->latest()->first();
 
-        if (!$qris) {
+        if (! $qris) {
             return ApiResponse::error('QRIS tidak tersedia saat ini.', null, 404);
         }
 
         return ApiResponse::success([
-            'id'             => $qris->id,
-            'image'          => asset('storage/' . $qris->image),
-            'nama_rekening'  => $qris->nama_rekening,
+            'id' => $qris->id,
+            'image' => asset('storage/'.$qris->image),
+            'nama_rekening' => $qris->nama_rekening,
             'nomor_rekening' => $qris->nomor_rekening,
-            'keterangan'     => $qris->keterangan,
+            'keterangan' => $qris->keterangan,
         ], 'success');
     }
 
@@ -156,7 +157,7 @@ class QrSettingController extends Controller
         $path = Storage::disk('public')->path($qris->image);
 
         return response()->download($path, 'qris.png', [
-            'Content-Type'        => 'image/png',
+            'Content-Type' => 'image/png',
             'Content-Disposition' => 'attachment; filename="qris.png"',
         ]);
     }

@@ -2,18 +2,19 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\Regu;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 
 class DeleteInactiveRegu extends Command
 {
     protected $signature = 'regu:delete-inactive';
+
     protected $description = 'Hapus regu yang tidak aktif lebih dari 1 bulan';
 
     public function handle()
     {
-        
+
         // batas waktu penghapusan (testing 1 menit)
         // $batas = Carbon::now()->subMinute();
 
@@ -34,12 +35,14 @@ class DeleteInactiveRegu extends Command
         // Jika tidak ada data sama sekali
         if ($semuaRegu->isEmpty()) {
             $this->info('Tidak ada data regu tidak aktif.');
+
             return;
         }
 
         // Jika ada data tidak aktif tetapi BELUM mencapai 1 bulan
         if ($siapDihapus->isEmpty()) {
             $this->info('Ada data regu tidak aktif, tetapi belum mencapai batas 1 bulan sehingga belum dihapus.');
+
             return;
         }
 
@@ -48,7 +51,6 @@ class DeleteInactiveRegu extends Command
             $item->delete();
         }
 
-        $this->info(count($siapDihapus) . ' data regu tidak aktif lebih dari 1 bulan telah dihapus.');
+        $this->info(count($siapDihapus).' data regu tidak aktif lebih dari 1 bulan telah dihapus.');
     }
-
 }

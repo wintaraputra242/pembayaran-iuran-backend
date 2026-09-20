@@ -36,7 +36,7 @@ return [
     ],
 
     'fonnte' => [
-        'token'    => env('FONNTE_TOKEN'),
+        'token' => env('FONNTE_TOKEN'),
         'group_id' => env('FONNTE_GROUP_ID'), // isi nanti setelah dapat ID grup
     ],
 

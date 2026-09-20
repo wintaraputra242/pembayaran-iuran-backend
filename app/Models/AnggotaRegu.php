@@ -9,19 +9,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AnggotaRegu extends Model
 {
-  use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
-  protected $table = 'anggota_regu';
+    protected $table = 'anggota_regu';
 
-  protected $fillable = ['id_regu', 'nik', 'status_keaktifan', 'is_leader'];
+    protected $fillable = ['id_regu', 'nik', 'status_keaktifan', 'is_leader'];
 
-  public function regu(): BelongsTo
-  {
-    return $this->belongsTo(Regu::class, 'id_regu');
-  }
+    public function regu(): BelongsTo
+    {
+        return $this->belongsTo(Regu::class, 'id_regu');
+    }
 
-  public function warga(): BelongsTo
-  {
-    return $this->belongsTo(Warga::class, 'nik', 'nik');
-  }
+    public function warga(): BelongsTo
+    {
+        return $this->belongsTo(Warga::class, 'nik', 'nik');
+    }
 }

@@ -11,12 +11,12 @@ class Notification extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table    = 'notifications';
+    protected $table = 'notifications';
 
     protected $fillable = ['title', 'message', 'type', 'user_id', 'is_read', 'data'];
- 
+
     protected $casts = ['data' => 'array', 'is_read' => 'boolean'];
- 
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id')->withTrashed();

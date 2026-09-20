@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 class FonnteService
 {
     protected string $token;
+
     protected string $baseUrl = 'https://api.fonnte.com';
 
     public function __construct()
@@ -19,31 +20,32 @@ class FonnteService
     public function send(string $phone, string $message, int $delay = 15): bool
     {
         try {
-            $phone = $this->formatPhone($phone); 
+            $phone = $this->formatPhone($phone);
 
             $response = Http::withHeaders([
                 'Authorization' => $this->token,
             ])
-            ->asForm()
-            ->post("{$this->baseUrl}/send", [
-                'target'      => $phone,
-                'message'     => $message,
-                'delay'       => $delay,
-                'countryCode' => '62',
-            ]);
+                ->asForm()
+                ->post("{$this->baseUrl}/send", [
+                    'target' => $phone,
+                    'message' => $message,
+                    'delay' => $delay,
+                    'countryCode' => '62',
+                ]);
 
             if ($response->successful() && $response->json('status')) {
                 return true;
             }
 
             Log::warning('Fonnte gagal kirim pesan', [
-                'phone'    => $phone,
+                'phone' => $phone,
                 'response' => $response->json(),
             ]);
 
             return false;
         } catch (\Throwable $e) {
-            Log::error('Fonnte error: ' . $e->getMessage());
+            Log::error('Fonnte error: '.$e->getMessage());
+
             return false;
         }
     }
@@ -53,8 +55,9 @@ class FonnteService
     {
         $groupId = config('services.fonnte.group_id');
 
-        if (!$groupId) {
+        if (! $groupId) {
             Log::warning('Fonnte group_id belum dikonfigurasi.');
+
             return false;
         }
 
@@ -62,8 +65,8 @@ class FonnteService
             $response = Http::withHeaders([
                 'Authorization' => $this->token,
             ])->post("{$this->baseUrl}/send", [
-                'target'      => $groupId,
-                'message'     => $message,
+                'target' => $groupId,
+                'message' => $message,
                 'countryCode' => '62',
             ]);
 
@@ -77,7 +80,8 @@ class FonnteService
 
             return false;
         } catch (\Throwable $e) {
-            Log::error('Fonnte group error: ' . $e->getMessage());
+            Log::error('Fonnte group error: '.$e->getMessage());
+
             return false;
         }
     }
@@ -87,7 +91,7 @@ class FonnteService
         $phone = preg_replace('/\D/', '', $phone);
 
         if (str_starts_with($phone, '0')) {
-            $phone = '62' . substr($phone, 1);
+            $phone = '62'.substr($phone, 1);
         }
 
         return $phone;

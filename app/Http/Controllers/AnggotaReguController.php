@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\AnggotaRegu;
 use App\Models\Regu;
@@ -55,7 +54,7 @@ class AnggotaReguController extends Controller
     {
         $anggota = AnggotaRegu::with(['warga', 'regu'])->find($id);
 
-        if (!$anggota) {
+        if (! $anggota) {
             return ApiResponse::error('Data anggota regu tidak ditemukan.', null, 404);
         }
 
@@ -65,17 +64,17 @@ class AnggotaReguController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'id_regu'  => 'required|exists:regu,id',
-            'niks'     => 'required|array|min:1',
-            'niks.*'   => 'required|exists:warga,nik|distinct',
+            'id_regu' => 'required|exists:regu,id',
+            'niks' => 'required|array|min:1',
+            'niks.*' => 'required|exists:warga,nik|distinct',
         ], [
-            'id_regu.required'   => 'ID regu wajib diisi.',
-            'id_regu.exists'     => 'Regu tidak ditemukan.',
-            'niks.required'      => 'Warga wajib dipilih.',
-            'niks.array'         => 'Format data warga tidak valid.',
-            'niks.min'           => 'Minimal pilih satu warga.',
-            'niks.*.exists'      => 'Terdapat data warga yang tidak valid.',
-            'niks.*.distinct'    => 'Terdapat NIK duplikat.',
+            'id_regu.required' => 'ID regu wajib diisi.',
+            'id_regu.exists' => 'Regu tidak ditemukan.',
+            'niks.required' => 'Warga wajib dipilih.',
+            'niks.array' => 'Format data warga tidak valid.',
+            'niks.min' => 'Minimal pilih satu warga.',
+            'niks.*.exists' => 'Terdapat data warga yang tidak valid.',
+            'niks.*.distinct' => 'Terdapat NIK duplikat.',
         ]);
 
         if ($validator->fails()) {
@@ -86,9 +85,9 @@ class AnggotaReguController extends Controller
             );
         }
 
-        $niks   = $validator->validated()['niks'];
+        $niks = $validator->validated()['niks'];
         $idRegu = $validator->validated()['id_regu'];
-        $regu   = Regu::find($idRegu);
+        $regu = Regu::find($idRegu);
 
         // Hanya anggap "sudah terdaftar" kalau keanggotaannya masih benar-benar aktif.
         // Warga dengan keanggotaan nonaktif (misalnya karena regu lamanya dinonaktifkan)
@@ -99,7 +98,7 @@ class AnggotaReguController extends Controller
             ->pluck('nik')
             ->toArray();
 
-        if (!empty($existingNik)) {
+        if (! empty($existingNik)) {
             return ApiResponse::error(
                 'Validasi gagal.',
                 'Beberapa warga sudah terdaftar sebagai anggota regu.',
@@ -124,10 +123,10 @@ class AnggotaReguController extends Controller
 
         foreach ($niks as $nik) {
             $insertData[] = [
-                'id_regu'          => $idRegu,
-                'nik'              => $nik,
+                'id_regu' => $idRegu,
+                'nik' => $nik,
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
+                'is_leader' => false,
             ];
         }
 
@@ -140,13 +139,13 @@ class AnggotaReguController extends Controller
 
         $message = 'Anggota regu berhasil ditambahkan.';
 
-        if (!$reguHasLeader) {
+        if (! $reguHasLeader) {
             $message .= ' Regu belum memiliki ketua.';
         }
 
         $this->writeLog(
             'create',
-            'Menambahkan ' . count($niks) . ' anggota ke regu "' . $regu->nama_regu . '".',
+            'Menambahkan '.count($niks).' anggota ke regu "'.$regu->nama_regu.'".',
             $request
         );
 
@@ -157,7 +156,7 @@ class AnggotaReguController extends Controller
     {
         $anggota = AnggotaRegu::find($id);
 
-        if (!$anggota) {
+        if (! $anggota) {
             return ApiResponse::error('Data anggota regu tidak ditemukan.', null, 404);
         }
 
@@ -173,7 +172,7 @@ class AnggotaReguController extends Controller
 
         $this->writeLog(
             'delete',
-            'Menghapus anggota regu dengan NIK ' . $anggota->nik . ' dari regu ID ' . $anggota->id_regu . '.',
+            'Menghapus anggota regu dengan NIK '.$anggota->nik.' dari regu ID '.$anggota->id_regu.'.',
             $request
         );
 
@@ -184,12 +183,12 @@ class AnggotaReguController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'id_regu' => 'required|exists:regu,id',
-            'nik'     => 'required|exists:anggota_regu,nik',
+            'nik' => 'required|exists:anggota_regu,nik',
         ], [
             'id_regu.required' => 'ID regu wajib diisi.',
-            'id_regu.exists'   => 'Regu tidak ditemukan.',
-            'nik.required'     => 'NIK wajib diisi.',
-            'nik.exists'       => 'Anggota regu tidak ditemukan.',
+            'id_regu.exists' => 'Regu tidak ditemukan.',
+            'nik.required' => 'NIK wajib diisi.',
+            'nik.exists' => 'Anggota regu tidak ditemukan.',
         ]);
 
         if ($validator->fails()) {
@@ -200,7 +199,7 @@ class AnggotaReguController extends Controller
             );
         }
 
-        $idRegu  = $request->id_regu;
+        $idRegu = $request->id_regu;
         $nikBaru = $request->nik;
 
         $anggotaBaru = AnggotaRegu::where('id_regu', $idRegu)
@@ -208,7 +207,7 @@ class AnggotaReguController extends Controller
             ->whereNull('deleted_at')
             ->first();
 
-        if (!$anggotaBaru) {
+        if (! $anggotaBaru) {
             return ApiResponse::error('Data tidak valid.', 'Anggota tidak terdaftar atau sudah di-reset.', 404);
         }
 
@@ -225,7 +224,7 @@ class AnggotaReguController extends Controller
 
         $this->writeLog(
             'update',
-            'Mengubah ketua regu pada regu "' . $regu->nama_regu . '" menjadi warga dengan NIK ' . $nikBaru . '.',
+            'Mengubah ketua regu pada regu "'.$regu->nama_regu.'" menjadi warga dengan NIK '.$nikBaru.'.',
             $request
         );
 
@@ -236,7 +235,7 @@ class AnggotaReguController extends Controller
     {
         $anggota = AnggotaRegu::find($id);
 
-        if (!$anggota) {
+        if (! $anggota) {
             return ApiResponse::error('Data tidak ditemukan.', 'Anggota regu tidak ditemukan.', 404);
         }
 
@@ -246,7 +245,7 @@ class AnggotaReguController extends Controller
 
         $this->writeLog(
             'reset',
-            'Mereset anggota regu dengan NIK ' . $anggota->nik . '.',
+            'Mereset anggota regu dengan NIK '.$anggota->nik.'.',
             $request
         );
 
@@ -255,7 +254,7 @@ class AnggotaReguController extends Controller
 
     public function resetAnggotaByRegu(Request $request, $idRegu)
     {
-        $query       = AnggotaRegu::where('id_regu', $idRegu);
+        $query = AnggotaRegu::where('id_regu', $idRegu);
         $anggotaList = $query->get();
 
         if ($anggotaList->isEmpty()) {
@@ -275,7 +274,7 @@ class AnggotaReguController extends Controller
 
         $this->writeLog(
             'reset',
-            'Mereset seluruh anggota pada regu "' . ($regu->nama_regu ?? '-') . '" sebanyak ' . $count . ' warga.',
+            'Mereset seluruh anggota pada regu "'.($regu->nama_regu ?? '-').'" sebanyak '.$count.' warga.',
             $request
         );
 
@@ -295,7 +294,7 @@ class AnggotaReguController extends Controller
 
         $this->writeLog(
             'reset',
-            'Mereset seluruh anggota dari semua regu sebanyak ' . $count . ' data.',
+            'Mereset seluruh anggota dari semua regu sebanyak '.$count.' data.',
             $request
         );
 
@@ -306,12 +305,12 @@ class AnggotaReguController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::user()?->id,
+                'id_user' => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
-                'action'             => $action,
-                'description'        => $description,
-                'ip_address'         => $request->ip(),
-                'user_agent'         => $request->userAgent(),
+                'action' => $action,
+                'description' => $description,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");

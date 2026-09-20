@@ -20,9 +20,9 @@ class InformasiIuranObserver
     public function deleting(InformasiIuran $iuran): void
     {
         $jumlahPembayaran = $iuran->pembayaran()
-                                  ->whereNull('deleted_at')
-                                  ->count();
- 
+            ->whereNull('deleted_at')
+            ->count();
+
         if ($jumlahPembayaran > 0) {
             throw ValidationException::withMessages([
                 'informasi_iuran' => "Iuran [{$iuran->judul_iuran}] masih memiliki {$jumlahPembayaran} data pembayaran. Tidak dapat dihapus.",
@@ -30,4 +30,3 @@ class InformasiIuranObserver
         }
     }
 }
-

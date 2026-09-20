@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ApiResponse;
 use App\Models\User;
 use App\Models\Warga;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
-use App\Helpers\ApiResponse;
 
 class OldAuthController extends Controller
 {
@@ -22,16 +21,16 @@ class OldAuthController extends Controller
 
         $warga = Warga::where('nik', $request->nik)->first();
 
-        if (!$warga) {
+        if (! $warga) {
             return ApiResponse::error('NIK tidak ditemukan.', null, 404);
         }
 
-        // ini tidak diperlukan, karena nanti di disaat penambahan data warga, secara otomatis ditambahkan akun usernya juga 
+        // ini tidak diperlukan, karena nanti di disaat penambahan data warga, secara otomatis ditambahkan akun usernya juga
         // DIGUNAKAN UNTUK TESTING
         $user = User::where('nik', $request->nik)->first();
 
         // Jika belum punya akun user → buat akun kosong
-        if (!$user) {
+        if (! $user) {
             $user = User::create([
                 'nik' => $request->nik,
                 'role' => 'warga',
@@ -65,12 +64,12 @@ class OldAuthController extends Controller
         // Cek user berdasarkan NIK
         $user = User::where('nik', $request->nik)->first();
 
-        if (!$user) {
+        if (! $user) {
             return ApiResponse::error('Akun tidak ditemukan.', null, 404);
         }
 
         // Jika password sudah ada, tidak perlu buat lagi
-        if (!empty($user->password)) {
+        if (! empty($user->password)) {
             return ApiResponse::error('Password sudah pernah dibuat. Silakan login langsung.', null, 400);
         }
 
@@ -98,7 +97,6 @@ class OldAuthController extends Controller
         );
     }
 
-
     /**
      * Tahap 3 - Login (Admin / Ketua Regu / Warga) (ini untuk login warga dan admin beserta ketua regu)
      */
@@ -116,7 +114,7 @@ class OldAuthController extends Controller
             $user = User::where('username', $request->username)->first();
         }
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             return ApiResponse::error('Kredensial salah.', 'Username/NIK atau password salah.', 401);
         }
 
@@ -139,6 +137,7 @@ class OldAuthController extends Controller
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
+
         return ApiResponse::success(null, 'Logout berhasil.');
     }
 

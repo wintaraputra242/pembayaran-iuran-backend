@@ -5,10 +5,10 @@ namespace App\Exports;
 use App\Models\Pembayaran;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithHeadings;
 
-class LaporanPembayaranExport implements FromCollection, WithHeadings, WithColumnWidths
+class LaporanPembayaranExport implements FromCollection, WithColumnWidths, WithHeadings
 {
     protected $filters;
 
@@ -22,34 +22,34 @@ class LaporanPembayaranExport implements FromCollection, WithHeadings, WithColum
         $query = Pembayaran::query()
             ->with(['warga.anggotaRegu.regu', 'informasiIuran', 'diprosesoleh']);
 
-        if (!empty($this->filters['start_date']) && !empty($this->filters['end_date'])) {
+        if (! empty($this->filters['start_date']) && ! empty($this->filters['end_date'])) {
             $query->whereBetween('tanggal_bayar', [
                 $this->filters['start_date'],
-                $this->filters['end_date']
+                $this->filters['end_date'],
             ]);
         }
 
-        if (!empty($this->filters['jenis_iuran'])) {
+        if (! empty($this->filters['jenis_iuran'])) {
             $query->whereHas('informasiIuran', function ($q) {
                 $q->where('jenis_iuran', $this->filters['jenis_iuran']);
             });
         }
 
-        if (!empty($this->filters['metode_bayar'])) {
+        if (! empty($this->filters['metode_bayar'])) {
             $query->where('metode_bayar', $this->filters['metode_bayar']);
         }
 
-        if (!empty($this->filters['status_bayar'])) {
+        if (! empty($this->filters['status_bayar'])) {
             $query->where('status_bayar', $this->filters['status_bayar']);
         }
 
-        if (!empty($this->filters['regu'])) {
+        if (! empty($this->filters['regu'])) {
             $query->whereHas('warga.anggotaRegu', function ($q) {
                 $q->where('id_regu', $this->filters['regu']);
             });
         }
 
-        if (!empty($this->filters['informasi_iuran'])) {
+        if (! empty($this->filters['informasi_iuran'])) {
             $query->where('id_informasi_iuran', $this->filters['informasi_iuran']);
         }
 
@@ -84,11 +84,11 @@ class LaporanPembayaranExport implements FromCollection, WithHeadings, WithColum
                         9 => 'Sep',
                         10 => 'Okt',
                         11 => 'Nov',
-                        12 => 'Des'
+                        12 => 'Des',
                     ];
 
                     $bulan = collect($bulanList)
-                        ->map(fn($b) => $bulanMap[$b] ?? '')
+                        ->map(fn ($b) => $bulanMap[$b] ?? '')
                         ->join(', ');
                 }
 

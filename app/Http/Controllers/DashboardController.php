@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Notification;
 use App\Models\Pembayaran;
@@ -15,7 +14,7 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $type  = $request->get('type', 'notifikasi');
+        $type = $request->get('type', 'notifikasi');
         $tahun = now()->format('Y');
         $bulan = (int) now()->format('n');
 
@@ -36,10 +35,10 @@ class DashboardController extends Controller
 
         $sudahBayarBulanIni = $iuranBulananAktif
             ? Pembayaran::where('id_informasi_iuran', $iuranBulananAktif->id)
-            ->where('status_bayar', 'approved')
-            ->whereJsonContains('bulan', (string) $bulan)
-            ->distinct('nik')
-            ->count('nik')
+                ->where('status_bayar', 'approved')
+                ->whereJsonContains('bulan', (string) $bulan)
+                ->distinct('nik')
+                ->count('nik')
             : 0;
 
         $belumBayarBulanIni = $totalWarga - $sudahBayarBulanIni;
@@ -59,19 +58,19 @@ class DashboardController extends Controller
 
         switch ($type) {
             case 'notifikasi':
-                $data    = $this->getNotifications();
+                $data = $this->getNotifications();
                 $message = 'Data notifikasi dashboard.';
                 break;
             case 'pembayaran':
-                $data    = $this->getPayments();
+                $data = $this->getPayments();
                 $message = 'Data pembayaran terbaru.';
                 break;
             case 'warga_belum_bayar':
-                $data    = $this->getUnpaidResidents($iuranBulananAktif, $bulan);
+                $data = $this->getUnpaidResidents($iuranBulananAktif, $bulan);
                 $message = 'Data warga belum bayar.';
                 break;
             case 'activity_log':
-                $data    = $this->getActivityLogs();
+                $data = $this->getActivityLogs();
                 $message = 'Data aktivitas terbaru.';
                 break;
             default:
@@ -79,15 +78,15 @@ class DashboardController extends Controller
         }
 
         return ApiResponse::success([
-            'total_warga'               => $totalWarga,
+            'total_warga' => $totalWarga,
             'total_pembayaran_hari_ini' => $totalPembayaranHariIni,
-            'sudah_bayar_bulan_ini'     => $sudahBayarBulanIni,
-            'belum_bayar_bulan_ini'     => $belumBayarBulanIni,
-            'iuran_kematian_aktif'      => $iuranKematianAktif,
-            'pembayaran_menunggu'       => $pembayaranMenunggu,
-            'nama_bulan'                => $namaBulan,
-            'tahun'                     => $tahun,
-            'data'                      => $data,
+            'sudah_bayar_bulan_ini' => $sudahBayarBulanIni,
+            'belum_bayar_bulan_ini' => $belumBayarBulanIni,
+            'iuran_kematian_aktif' => $iuranKematianAktif,
+            'pembayaran_menunggu' => $pembayaranMenunggu,
+            'nama_bulan' => $namaBulan,
+            'tahun' => $tahun,
+            'data' => $data,
         ], $message);
     }
 
@@ -116,7 +115,9 @@ class DashboardController extends Controller
 
     private function getUnpaidResidents($iuranBulananAktif, int $bulan)
     {
-        if (!$iuranBulananAktif) return [];
+        if (! $iuranBulananAktif) {
+            return [];
+        }
 
         $tahunPeriode = (int) $iuranBulananAktif->periode;
 

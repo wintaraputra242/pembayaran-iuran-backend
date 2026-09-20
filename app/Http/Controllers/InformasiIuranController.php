@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\InformasiIuran;
 use App\Models\Pembayaran;
@@ -45,7 +44,7 @@ class InformasiIuranController extends Controller
             $query->withTrashed();
         }
 
-        $sortBy  = $request->query('sort_by');
+        $sortBy = $request->query('sort_by');
         $sortDir = $request->query('sort_dir', 'asc');
 
         if ($sortBy) {
@@ -77,7 +76,7 @@ class InformasiIuranController extends Controller
     {
         $iuran = InformasiIuran::with('penanggungJawab:nik,nama_warga')->find($id);
 
-        if (!$iuran) {
+        if (! $iuran) {
             return ApiResponse::error('Informasi iuran tidak ditemukan.', null, 404);
         }
 
@@ -87,26 +86,26 @@ class InformasiIuranController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'judul_iuran'          => 'required|string|max:150',
-            'jenis_iuran'          => 'required|in:bulanan,kematian',
-            'periode'              => 'nullable|integer|regex:/^[0-9]{4}$/|min:1900|max:2100',
-            'jumlah_iuran'         => 'required|numeric|min:0',
-            'keterangan'           => 'nullable|string',
+            'judul_iuran' => 'required|string|max:150',
+            'jenis_iuran' => 'required|in:bulanan,kematian',
+            'periode' => 'nullable|integer|regex:/^[0-9]{4}$/|min:1900|max:2100',
+            'jumlah_iuran' => 'required|numeric|min:0',
+            'keterangan' => 'nullable|string',
             'nama_warga_meninggal' => 'nullable|string|max:150',
             'nik_penanggung_jawab' => 'nullable|string|exists:warga,nik',
         ], [
-            'judul_iuran.required'     => 'Judul iuran wajib diisi.',
-            'jenis_iuran.required'     => 'Jenis iuran wajib diisi.',
-            'jenis_iuran.in'           => 'Jenis iuran hanya boleh berisi bulanan atau kematian.',
-            'periode.regex'            => 'Periode harus berupa tahun 4 digit, misalnya 2025.',
-            'periode.integer'          => 'Periode harus berupa angka.',
-            'periode.min'              => 'Tahun periode minimal 1900.',
-            'periode.max'              => 'Tahun periode maksimal 2100.',
-            'jumlah_iuran.required'    => 'Jumlah iuran wajib diisi.',
-            'jumlah_iuran.numeric'     => 'Jumlah iuran harus berupa angka.',
-            'jumlah_iuran.min'         => 'Jumlah iuran minimal bernilai 0.',
+            'judul_iuran.required' => 'Judul iuran wajib diisi.',
+            'jenis_iuran.required' => 'Jenis iuran wajib diisi.',
+            'jenis_iuran.in' => 'Jenis iuran hanya boleh berisi bulanan atau kematian.',
+            'periode.regex' => 'Periode harus berupa tahun 4 digit, misalnya 2025.',
+            'periode.integer' => 'Periode harus berupa angka.',
+            'periode.min' => 'Tahun periode minimal 1900.',
+            'periode.max' => 'Tahun periode maksimal 2100.',
+            'jumlah_iuran.required' => 'Jumlah iuran wajib diisi.',
+            'jumlah_iuran.numeric' => 'Jumlah iuran harus berupa angka.',
+            'jumlah_iuran.min' => 'Jumlah iuran minimal bernilai 0.',
             'nik_penanggung_jawab.exists' => 'NIK penanggung jawab tidak ditemukan.',
-            'keterangan.string'        => 'Keterangan harus berupa teks.',
+            'keterangan.string' => 'Keterangan harus berupa teks.',
         ]);
 
         if ($validator->fails()) {
@@ -160,7 +159,7 @@ class InformasiIuranController extends Controller
 
         $this->writeLog(
             'create',
-            'Menambahkan informasi iuran "' . $iuran->judul_iuran . '" dengan jenis "' . $iuran->jenis_iuran . '".',
+            'Menambahkan informasi iuran "'.$iuran->judul_iuran.'" dengan jenis "'.$iuran->jenis_iuran.'".',
             $request
         );
 
@@ -171,31 +170,31 @@ class InformasiIuranController extends Controller
     {
         $informasiIuran = InformasiIuran::find($id);
 
-        if (!$informasiIuran) {
+        if (! $informasiIuran) {
             return ApiResponse::error('Data informasi iuran tidak ditemukan.', null, 404);
         }
 
         $validator = Validator::make($request->all(), [
-            'judul_iuran'          => 'required|string|max:150',
-            'jenis_iuran'          => 'required|in:bulanan,kematian',
-            'periode'              => 'nullable|integer|regex:/^[0-9]{4}$/|min:1900|max:2100',
-            'jumlah_iuran'         => 'required|numeric|min:0',
-            'keterangan'           => 'nullable|string',
+            'judul_iuran' => 'required|string|max:150',
+            'jenis_iuran' => 'required|in:bulanan,kematian',
+            'periode' => 'nullable|integer|regex:/^[0-9]{4}$/|min:1900|max:2100',
+            'jumlah_iuran' => 'required|numeric|min:0',
+            'keterangan' => 'nullable|string',
             'nama_warga_meninggal' => 'nullable|string|max:150',
             'nik_penanggung_jawab' => 'nullable|string|exists:warga,nik',
         ], [
-            'judul_iuran.required'     => 'Judul iuran wajib diisi.',
-            'jenis_iuran.required'     => 'Jenis iuran wajib diisi.',
-            'jenis_iuran.in'           => 'Jenis iuran hanya boleh berisi bulanan atau kematian.',
-            'periode.regex'            => 'Periode harus berupa tahun 4 digit, misalnya 2025.',
-            'periode.integer'          => 'Periode harus berupa angka.',
-            'periode.min'              => 'Tahun periode minimal 1900.',
-            'periode.max'              => 'Tahun periode maksimal 2100.',
-            'jumlah_iuran.required'    => 'Jumlah iuran wajib diisi.',
-            'jumlah_iuran.numeric'     => 'Jumlah iuran harus berupa angka.',
-            'jumlah_iuran.min'         => 'Jumlah iuran minimal bernilai 0.',
+            'judul_iuran.required' => 'Judul iuran wajib diisi.',
+            'jenis_iuran.required' => 'Jenis iuran wajib diisi.',
+            'jenis_iuran.in' => 'Jenis iuran hanya boleh berisi bulanan atau kematian.',
+            'periode.regex' => 'Periode harus berupa tahun 4 digit, misalnya 2025.',
+            'periode.integer' => 'Periode harus berupa angka.',
+            'periode.min' => 'Tahun periode minimal 1900.',
+            'periode.max' => 'Tahun periode maksimal 2100.',
+            'jumlah_iuran.required' => 'Jumlah iuran wajib diisi.',
+            'jumlah_iuran.numeric' => 'Jumlah iuran harus berupa angka.',
+            'jumlah_iuran.min' => 'Jumlah iuran minimal bernilai 0.',
             'nik_penanggung_jawab.exists' => 'NIK penanggung jawab tidak ditemukan.',
-            'keterangan.string'        => 'Keterangan harus berupa teks.',
+            'keterangan.string' => 'Keterangan harus berupa teks.',
         ]);
 
         if ($validator->fails()) {
@@ -258,7 +257,7 @@ class InformasiIuranController extends Controller
 
         $this->writeLog(
             'update',
-            'Memperbarui informasi iuran "' . $informasiIuran->judul_iuran . '".',
+            'Memperbarui informasi iuran "'.$informasiIuran->judul_iuran.'".',
             $request
         );
 
@@ -269,7 +268,7 @@ class InformasiIuranController extends Controller
     {
         $iuran = InformasiIuran::withTrashed()->find($id);
 
-        if (!$iuran) {
+        if (! $iuran) {
             return ApiResponse::error('Informasi iuran tidak ditemukan.', null, 404);
         }
 
@@ -290,7 +289,7 @@ class InformasiIuranController extends Controller
 
         $this->writeLog(
             'delete',
-            'Menghapus informasi iuran "' . $iuran->judul_iuran . '".',
+            'Menghapus informasi iuran "'.$iuran->judul_iuran.'".',
             $request
         );
 
@@ -303,7 +302,7 @@ class InformasiIuranController extends Controller
             'status_aktif' => 'required|boolean',
         ], [
             'status_aktif.required' => 'Status aktif wajib diisi.',
-            'status_aktif.boolean'  => 'Status aktif harus berupa pilihan Ya (true) atau Tidak (false).',
+            'status_aktif.boolean' => 'Status aktif harus berupa pilihan Ya (true) atau Tidak (false).',
         ]);
 
         if ($validator->fails()) {
@@ -312,13 +311,13 @@ class InformasiIuranController extends Controller
 
         $informasiIuran = InformasiIuran::withTrashed()->find($id);
 
-        if (!$informasiIuran) {
+        if (! $informasiIuran) {
             return ApiResponse::error('Data informasi iuran tidak ditemukan.', null, 404);
         }
 
         $informasiIuran->status_aktif = $request->status_aktif;
 
-        if (!$request->status_aktif) {
+        if (! $request->status_aktif) {
             $informasiIuran->delete();
         }
 
@@ -330,7 +329,7 @@ class InformasiIuranController extends Controller
 
         $this->writeLog(
             'update',
-            'Mengubah status informasi iuran "' . $informasiIuran->judul_iuran . '" menjadi ' . ($request->status_aktif ? 'aktif' : 'tidak aktif') . '.',
+            'Mengubah status informasi iuran "'.$informasiIuran->judul_iuran.'" menjadi '.($request->status_aktif ? 'aktif' : 'tidak aktif').'.',
             $request
         );
 
@@ -370,12 +369,12 @@ class InformasiIuranController extends Controller
     {
         try {
             $test = ActivityLog::create([
-                'id_user'            => Auth::user()?->id,
+                'id_user' => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
-                'action'             => $action,
-                'description'        => $description,
-                'ip_address'         => $request->ip(),
-                'user_agent'         => $request->userAgent(),
+                'action' => $action,
+                'description' => $description,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
 
             Log::warning($test);

@@ -34,18 +34,22 @@ class Pembayaran extends Model
     ];
 
     protected $casts = [
-        'bulan'        => 'array',
-        'tanggal_bayar'=> 'date',
+        'bulan' => 'array',
+        'tanggal_bayar' => 'date',
         'submitted_at' => 'datetime',
         'validated_at' => 'datetime',
     ];
 
-    const STATUS_PENDING  = 'pending';
+    const STATUS_PENDING = 'pending';
+
     const STATUS_APPROVED = 'approved';
+
     const STATUS_REJECTED = 'rejected';
 
-    const METODE_CASH     = 'cash';
-    const METODE_QRIS     = 'qris';
+    const METODE_CASH = 'cash';
+
+    const METODE_QRIS = 'qris';
+
     const METODE_TRANSFER = 'transfer';
 
     public function warga(): BelongsTo

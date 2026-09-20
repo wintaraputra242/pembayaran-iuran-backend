@@ -23,27 +23,27 @@ class WargaObserver
     public function deleting(Warga $warga): void
     {
         $anggotaAktif = $warga->anggotaRegu()
-                              ->whereNull('deleted_at')
-                              ->count();
- 
+            ->whereNull('deleted_at')
+            ->count();
+
         if ($anggotaAktif > 0) {
             throw ValidationException::withMessages([
                 'warga' => "Warga [{$warga->nama_warga}] masih terdaftar sebagai anggota di {$anggotaAktif} regu aktif. Keluarkan dari regu terlebih dahulu sebelum menonaktifkan.",
             ]);
         }
- 
+
         // Cek juga apakah warga masih jadi penanggung jawab iuran aktif
         $iuranAktif = $warga->iuranSebagaiPenanggungJawab()
-                            ->whereNull('deleted_at')
-                            ->count();
- 
+            ->whereNull('deleted_at')
+            ->count();
+
         if ($iuranAktif > 0) {
             throw ValidationException::withMessages([
                 'warga' => "Warga [{$warga->nama_warga}] masih menjadi penanggung jawab di {$iuranAktif} iuran aktif. Ganti penanggung jawab terlebih dahulu.",
             ]);
         }
     }
- 
+
     /**
      * Dipanggil SEBELUM restore() dieksekusi.
      *
@@ -59,4 +59,3 @@ class WargaObserver
         }
     }
 }
-

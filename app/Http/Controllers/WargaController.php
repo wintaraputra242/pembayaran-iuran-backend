@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel as FacadesExcel;
@@ -20,7 +21,6 @@ use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Illuminate\Support\Str;
 
 class WargaController extends Controller
 {
@@ -59,7 +59,7 @@ class WargaController extends Controller
     {
         $warga = Warga::withTrashed()->find($nik);
 
-        if (!$warga) {
+        if (! $warga) {
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
@@ -69,10 +69,10 @@ class WargaController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'nik'               => 'required|digits:16|unique:warga,nik',
-            'nama_warga'        => 'required|string|max:100',
-            'alamat'            => 'required|string',
-            'no_hp'             => [
+            'nik' => 'required|digits:16|unique:warga,nik',
+            'nama_warga' => 'required|string|max:100',
+            'alamat' => 'required|string',
+            'no_hp' => [
                 'required',
                 'string',
                 'max:20',
@@ -81,17 +81,17 @@ class WargaController extends Controller
             ],
             'tanggal_bergabung' => 'nullable|date',
         ], [
-            'nik.required'        => 'NIK wajib diisi.',
-            'nik.digits'   => 'NIK harus tepat 16 digit angka.',
-            'nik.unique'          => 'NIK sudah terdaftar.',
+            'nik.required' => 'NIK wajib diisi.',
+            'nik.digits' => 'NIK harus tepat 16 digit angka.',
+            'nik.unique' => 'NIK sudah terdaftar.',
             'nama_warga.required' => 'Nama warga wajib diisi.',
-            'nama_warga.string'   => 'Nama warga harus berupa teks.',
-            'nama_warga.max'      => 'Nama warga maksimal 100 karakter.',
-            'alamat.required'     => 'Alamat wajib diisi.',
-            'alamat.string'       => 'Alamat harus berupa teks.',
-            'no_hp.required'      => 'Nomor HP wajib diisi.',
-            'no_hp.string'        => 'Nomor HP harus berupa teks.',
-            'no_hp.max'           => 'Nomor HP maksimal 20 karakter.',
+            'nama_warga.string' => 'Nama warga harus berupa teks.',
+            'nama_warga.max' => 'Nama warga maksimal 100 karakter.',
+            'alamat.required' => 'Alamat wajib diisi.',
+            'alamat.string' => 'Alamat harus berupa teks.',
+            'no_hp.required' => 'Nomor HP wajib diisi.',
+            'no_hp.string' => 'Nomor HP harus berupa teks.',
+            'no_hp.max' => 'Nomor HP maksimal 20 karakter.',
             'no_hp.unique' => 'Nomor HP sudah digunakan oleh warga lain.',
             'tanggal_bergabung.date' => 'Tanggal bergabung harus berupa tanggal yang valid.',
         ]);
@@ -104,17 +104,17 @@ class WargaController extends Controller
 
         try {
             $user = User::create([
-                'name'      => $validator->validated()['nama_warga'],
-                'username'  => $request->nik,
-                'no_hp'     => $request->no_hp,
-                'password'  => null,
-                'role'      => 'warga',
+                'name' => $validator->validated()['nama_warga'],
+                'username' => $request->nik,
+                'no_hp' => $request->no_hp,
+                'password' => null,
+                'role' => 'warga',
                 'is_active' => true,
             ]);
 
             $warga = Warga::create([
                 ...$validator->validated(),
-                'id_user'          => $user->id,
+                'id_user' => $user->id,
                 'status_keaktifan' => 'aktif',
             ]);
 
@@ -136,6 +136,7 @@ class WargaController extends Controller
             return ApiResponse::success(null, 'Data warga berhasil ditambahkan.', 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
     }
@@ -144,14 +145,14 @@ class WargaController extends Controller
     {
         $warga = Warga::find($nik);
 
-        if (!$warga) {
+        if (! $warga) {
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
         $validator = Validator::make($request->all(), [
-            'nama_warga'        => 'sometimes|required|string|max:100',
-            'alamat'            => 'sometimes|required|string',
-            'no_hp'             => [
+            'nama_warga' => 'sometimes|required|string|max:100',
+            'alamat' => 'sometimes|required|string',
+            'no_hp' => [
                 'nullable',
                 'string',
                 'max:20',
@@ -161,10 +162,10 @@ class WargaController extends Controller
             'tanggal_bergabung' => 'nullable|date',
         ], [
             'nama_warga.required' => 'Nama warga wajib diisi.',
-            'nama_warga.max'      => 'Nama warga maksimal 100 karakter.',
-            'alamat.required'     => 'Alamat wajib diisi.',
-            'no_hp.max'           => 'Nomor HP maksimal 20 karakter.',
-            'no_hp.unique'        => 'Nomor HP sudah digunakan oleh warga lain.',
+            'nama_warga.max' => 'Nama warga maksimal 100 karakter.',
+            'alamat.required' => 'Alamat wajib diisi.',
+            'no_hp.max' => 'Nomor HP maksimal 20 karakter.',
+            'no_hp.unique' => 'Nomor HP sudah digunakan oleh warga lain.',
             'tanggal_bergabung.date' => 'Tanggal bergabung harus berupa tanggal yang valid.',
         ]);
 
@@ -179,7 +180,7 @@ class WargaController extends Controller
 
             if ($warga->user) {
                 $warga->user->update([
-                    'name'  => $request->nama_warga ?? $warga->nama_warga,
+                    'name' => $request->nama_warga ?? $warga->nama_warga,
                     'no_hp' => $request->no_hp,
                 ]);
             }
@@ -191,16 +192,16 @@ class WargaController extends Controller
             return ApiResponse::success(null, 'Data warga berhasil diperbarui.');
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
     }
-
 
     public function destroy(Request $request, string $nik): JsonResponse
     {
         $warga = Warga::find($nik);
 
-        if (!$warga) {
+        if (! $warga) {
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
@@ -222,6 +223,7 @@ class WargaController extends Controller
             return ApiResponse::success(null, 'Data warga berhasil dinonaktifkan.');
         } catch (ValidationException $e) {
             DB::rollBack();
+
             return ApiResponse::error(
                 'Tidak dapat menghapus warga.',
                 collect($e->errors())->flatten()->first(),
@@ -229,10 +231,10 @@ class WargaController extends Controller
             );
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
     }
-
 
     public function updateStatus(Request $request, string $nik): JsonResponse
     {
@@ -240,7 +242,7 @@ class WargaController extends Controller
             'status_keaktifan' => ['required', Rule::in(['aktif', 'tidak_aktif'])],
         ], [
             'status_keaktifan.required' => 'Status keaktifan wajib diisi.',
-            'status_keaktifan.in'       => 'Status keaktifan hanya boleh: aktif atau tidak_aktif.',
+            'status_keaktifan.in' => 'Status keaktifan hanya boleh: aktif atau tidak_aktif.',
         ]);
 
         if ($validator->fails()) {
@@ -249,7 +251,7 @@ class WargaController extends Controller
 
         $warga = Warga::withTrashed()->find($nik);
 
-        if (!$warga) {
+        if (! $warga) {
             return ApiResponse::error('Warga tidak ditemukan.', null, 404);
         }
 
@@ -279,8 +281,8 @@ class WargaController extends Controller
 
         try {
             $pesan = $statusBaru === 'aktif'
-                ? "Status keanggotaan Anda telah diaktifkan kembali oleh pengurus."
-                : "Status keanggotaan Anda telah dinonaktifkan oleh pengurus.";
+                ? 'Status keanggotaan Anda telah diaktifkan kembali oleh pengurus.'
+                : 'Status keanggotaan Anda telah dinonaktifkan oleh pengurus.';
 
             app(\App\Services\IuranNotificationService::class)->kirimPesanKeWarga(
                 $warga,
@@ -310,34 +312,36 @@ class WargaController extends Controller
             if (count($data) > $maxRows) {
                 return ApiResponse::error(
                     'Terlalu banyak data.',
-                    "Maksimal {$maxRows} baris per import. Data Anda memiliki " . count($data) . " baris.",
+                    "Maksimal {$maxRows} baris per import. Data Anda memiliki ".count($data).' baris.',
                     422
                 );
             }
 
             $inserted = 0;
-            $updated  = 0;
-            $skipped  = 0;
-            $errors   = [];
+            $updated = 0;
+            $skipped = 0;
+            $errors = [];
 
             foreach ($data as $rowIndex => $row) {
                 $lineNum = $rowIndex + 2;
 
-                $nik              = trim((string) ($row[0] ?? ''));
-                $nama             = trim((string) ($row[1] ?? ''));
-                $alamat           = trim((string) ($row[2] ?? ''));
-                $hp               = trim((string) ($row[3] ?? ''));
+                $nik = trim((string) ($row[0] ?? ''));
+                $nama = trim((string) ($row[1] ?? ''));
+                $alamat = trim((string) ($row[2] ?? ''));
+                $hp = trim((string) ($row[3] ?? ''));
                 $tanggalBergabung = trim((string) ($row[4] ?? ''));
 
-                if (!$nik || !$nama) {
+                if (! $nik || ! $nama) {
                     $skipped++;
                     $errors[] = "Baris {$lineNum}: NIK dan Nama wajib diisi.";
+
                     continue;
                 }
 
-                if (strlen($nik) !== 16 || !ctype_digit($nik)) {
+                if (strlen($nik) !== 16 || ! ctype_digit($nik)) {
                     $skipped++;
                     $errors[] = "Baris {$lineNum}: NIK '{$nik}' harus tepat 16 digit angka.";
+
                     continue;
                 }
 
@@ -348,6 +352,7 @@ class WargaController extends Controller
                     } catch (\Throwable $e) {
                         $skipped++;
                         $errors[] = "Baris {$lineNum}: Format tanggal bergabung '{$tanggalBergabung}' tidak valid, dilewati.";
+
                         continue;
                     }
                 }
@@ -371,6 +376,7 @@ class WargaController extends Controller
                             if ($hpUsedByOtherWarga || $hpUsedByOtherUser) {
                                 $skipped++;
                                 $errors[] = "Baris {$lineNum}: No HP '{$hp}' sudah digunakan warga/user lain, data NIK '{$nik}' dilewati (tidak diupdate).";
+
                                 continue;
                             }
                         }
@@ -379,17 +385,25 @@ class WargaController extends Controller
                         DB::transaction(function () use ($existingWarga, $nama, $alamat, $hp, $parsedTanggalBergabung) {
                             $updateData = [];
 
-                            if ($nama)   $updateData['nama_warga'] = Str::upper($nama);
-                            if ($alamat) $updateData['alamat'] = $alamat;
-                            if ($hp)     $updateData['no_hp'] = $hp;
-                            if ($parsedTanggalBergabung) $updateData['tanggal_bergabung'] = $parsedTanggalBergabung;
+                            if ($nama) {
+                                $updateData['nama_warga'] = Str::upper($nama);
+                            }
+                            if ($alamat) {
+                                $updateData['alamat'] = $alamat;
+                            }
+                            if ($hp) {
+                                $updateData['no_hp'] = $hp;
+                            }
+                            if ($parsedTanggalBergabung) {
+                                $updateData['tanggal_bergabung'] = $parsedTanggalBergabung;
+                            }
 
-                            if (!empty($updateData)) {
+                            if (! empty($updateData)) {
                                 $existingWarga->update($updateData);
 
                                 if ($existingWarga->user && (isset($updateData['nama_warga']) || isset($updateData['no_hp']))) {
                                     $existingWarga->user->update([
-                                        'name'  => $updateData['nama_warga'] ?? $existingWarga->user->name,
+                                        'name' => $updateData['nama_warga'] ?? $existingWarga->user->name,
                                         'no_hp' => $updateData['no_hp'] ?? $existingWarga->user->no_hp,
                                     ]);
                                 }
@@ -403,6 +417,7 @@ class WargaController extends Controller
                         if ($existsInUsers) {
                             $skipped++;
                             $errors[] = "Baris {$lineNum}: NIK '{$nik}' sudah digunakan sebagai username user lain, dilewati.";
+
                             continue;
                         }
 
@@ -414,6 +429,7 @@ class WargaController extends Controller
                             if ($hpUsed) {
                                 $skipped++;
                                 $errors[] = "Baris {$lineNum}: No HP '{$hp}' sudah digunakan warga lain, dilewati.";
+
                                 continue;
                             }
                         }
@@ -421,22 +437,22 @@ class WargaController extends Controller
                         // MODE INSERT — data baru
                         DB::transaction(function () use ($nik, $nama, $alamat, $hp, $parsedTanggalBergabung) {
                             $user = User::create([
-                                'name'      => Str::upper($nama),
-                                'username'  => $nik,
-                                'no_hp'     => $hp ?: null,
-                                'password'  => null,
-                                'role'      => 'warga',
+                                'name' => Str::upper($nama),
+                                'username' => $nik,
+                                'no_hp' => $hp ?: null,
+                                'password' => null,
+                                'role' => 'warga',
                                 'is_active' => true,
                             ]);
 
                             Warga::create([
-                                'nik'               => $nik,
-                                'nama_warga'        => Str::upper($nama),
-                                'alamat'            => $alamat ?: '-',
-                                'no_hp'             => $hp ?: null,
+                                'nik' => $nik,
+                                'nama_warga' => Str::upper($nama),
+                                'alamat' => $alamat ?: '-',
+                                'no_hp' => $hp ?: null,
                                 'tanggal_bergabung' => $parsedTanggalBergabung,
-                                'id_user'           => $user->id,
-                                'status_keaktifan'  => 'aktif',
+                                'id_user' => $user->id,
+                                'status_keaktifan' => 'aktif',
                             ]);
                         });
 
@@ -444,7 +460,8 @@ class WargaController extends Controller
                     }
                 } catch (\Throwable $e) {
                     $skipped++;
-                    $errors[] = "Baris {$lineNum}: Gagal disimpan untuk NIK '{$nik}', terjadi kesalahan: " . $e->getMessage();
+                    $errors[] = "Baris {$lineNum}: Gagal disimpan untuk NIK '{$nik}', terjadi kesalahan: ".$e->getMessage();
+
                     continue;
                 }
             }
@@ -458,9 +475,9 @@ class WargaController extends Controller
             return ApiResponse::success(
                 [
                     'inserted' => $inserted,
-                    'updated'  => $updated,
-                    'skipped'  => $skipped,
-                    'errors'   => $errors,
+                    'updated' => $updated,
+                    'skipped' => $skipped,
+                    'errors' => $errors,
                 ],
                 "Import selesai. {$inserted} data baru ditambahkan, {$updated} data diperbarui, {$skipped} dilewati."
             );
@@ -468,6 +485,7 @@ class WargaController extends Controller
             return ApiResponse::error('Terjadi kesalahan saat import.', $e->getMessage(), 500);
         }
     }
+
     public function exportTemplate(): BinaryFileResponse
     {
         $headers = ['NIK', 'Nama Warga', 'Alamat', 'No HP', 'Tanggal Bergabung (YYYY-MM-DD)'];
@@ -477,7 +495,7 @@ class WargaController extends Controller
             ['3171234567890002', 'Siti Aminah', 'Jl. Sudirman No. 5', '082345678901', '2021-06-01'],
         ];
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         foreach ($headers as $colIndex => $header) {
@@ -491,7 +509,7 @@ class WargaController extends Controller
             foreach ($row as $colIndex => $value) {
                 $col = Coordinate::stringFromColumnIndex($colIndex + 1);
                 $sheet->setCellValueExplicit(
-                    "{$col}" . ($rowIndex + 2),
+                    "{$col}".($rowIndex + 2),
                     $value,
                     DataType::TYPE_STRING
                 );
@@ -501,7 +519,7 @@ class WargaController extends Controller
         $filename = 'template_import_warga.xlsx';
         $tempPath = storage_path("app/temp/{$filename}");
 
-        if (!file_exists(storage_path('app/temp'))) {
+        if (! file_exists(storage_path('app/temp'))) {
             mkdir(storage_path('app/temp'), 0755, true);
         }
 
@@ -517,12 +535,12 @@ class WargaController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::user()?->id,
+                'id_user' => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
-                'action'             => $action,
-                'description'        => $description,
-                'ip_address'         => $request->ip(),
-                'user_agent'         => $request->userAgent(),
+                'action' => $action,
+                'description' => $description,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");

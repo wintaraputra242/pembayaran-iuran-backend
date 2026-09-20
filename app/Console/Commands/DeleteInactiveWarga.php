@@ -2,18 +2,19 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\Warga;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 
 class DeleteInactiveWarga extends Command
 {
     protected $signature = 'warga:delete-inactive';
+
     protected $description = 'Hapus warga yang tidak aktif lebih dari 1 bulan';
 
     public function handle()
     {
-        
+
         // batas waktu penghapusan (testing 1 menit)
         // $batas = Carbon::now()->subMinute();
 
@@ -34,12 +35,14 @@ class DeleteInactiveWarga extends Command
         // Jika tidak ada data sama sekali
         if ($semuaWarga->isEmpty()) {
             $this->info('Tidak ada data warga tidak aktif.');
+
             return;
         }
 
         // Jika ada data tidak aktif tetapi BELUM mencapai 1 bulan
         if ($siapDihapus->isEmpty()) {
             $this->info('Ada data warga tidak aktif, tetapi belum mencapai batas 1 bulan sehingga belum dihapus.');
+
             return;
         }
 
@@ -48,7 +51,6 @@ class DeleteInactiveWarga extends Command
             $item->delete();
         }
 
-        $this->info(count($siapDihapus) . ' data warga tidak aktif lebih dari 1 bulan telah dihapus.');
+        $this->info(count($siapDihapus).' data warga tidak aktif lebih dari 1 bulan telah dihapus.');
     }
-
 }

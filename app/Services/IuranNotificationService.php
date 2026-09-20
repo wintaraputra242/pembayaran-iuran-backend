@@ -6,7 +6,6 @@ use App\Helpers\WargaHelper;
 use App\Models\InformasiIuran;
 use App\Models\NotificationLog;
 use App\Models\Pembayaran;
-use App\Models\UserDevice;
 use App\Models\Warga;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -14,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 class IuranNotificationService
 {
     public function __construct(
-        protected FonnteService  $fonnte,
+        protected FonnteService $fonnte,
         protected FirebaseService $firebase,
     ) {}
 
@@ -53,7 +52,7 @@ class IuranNotificationService
             MSG;
         } else {
             $almarhum = $iuran->nama_warga_meninggal ?? '-';
-            $pesan    = <<<MSG
+            $pesan = <<<MSG
             📢 *Informasi Iuran Kematian*
 
             Telah dibuka iuran solidaritas atas meninggalnya *{$almarhum}*.
@@ -87,19 +86,21 @@ class IuranNotificationService
     // -------------------------------------------------------
     private function handleBulanan(): void
     {
-        $today   = Carbon::today();
-        $bulan   = (int) $today->format('n');
-        $tahun   = $today->format('Y');
+        $today = Carbon::today();
+        $bulan = (int) $today->format('n');
+        $tahun = $today->format('Y');
         $tanggal = (int) $today->format('j');
 
         $type = match (true) {
-            $tanggal === 1                   => 'bulanan_awal',
-            $tanggal === 10                  => 'bulanan_tengah',
+            $tanggal === 1 => 'bulanan_awal',
+            $tanggal === 10 => 'bulanan_tengah',
             $tanggal === $today->daysInMonth => 'bulanan_akhir',
-            default                          => null,
+            default => null,
         };
 
-        if (!$type) return;
+        if (! $type) {
+            return;
+        }
 
         $iuranList = InformasiIuran::where('jenis_iuran', 'bulanan')
             ->where('periode', $tahun)
@@ -116,10 +117,10 @@ class IuranNotificationService
                 ->toArray();
 
             $wargaBelumBayar = WargaHelper::getWargaWajibBayar($bulan, $tahun, $sudahBayarNik)
-                ->filter(fn($w) => $w->no_hp || $w->user?->devices->isNotEmpty())
+                ->filter(fn ($w) => $w->no_hp || $w->user?->devices->isNotEmpty())
                 ->load('user.devices');
 
-            $periodeKey = $tahun . '-' . str_pad($bulan, 2, '0', STR_PAD_LEFT);
+            $periodeKey = $tahun.'-'.str_pad($bulan, 2, '0', STR_PAD_LEFT);
 
             foreach ($wargaBelumBayar as $warga) {
                 $message = $this->pesanBulanan(
@@ -158,13 +159,15 @@ class IuranNotificationService
             $selisihHari = Carbon::parse($iuran->created_at)->diffInDays($today);
 
             $type = match (true) {
-                $selisihHari === 1  => 'kematian_h1',
-                $selisihHari === 7  => 'kematian_h7',
+                $selisihHari === 1 => 'kematian_h1',
+                $selisihHari === 7 => 'kematian_h7',
                 $selisihHari === 30 => 'kematian_h30',
-                default             => null,
+                default => null,
             };
 
-            if (!$type) continue;
+            if (! $type) {
+                continue;
+            }
 
             $sudahBayarNik = Pembayaran::where('id_informasi_iuran', $iuran->id)
                 ->where('status_bayar', 'approved')
@@ -183,7 +186,7 @@ class IuranNotificationService
                 })
                 ->whereNull('deleted_at')
                 ->with('user.devices')
-                ->get();;
+                ->get();
 
             foreach ($wargaBelumBayar as $warga) {
                 $message = $this->pesanKematian(
@@ -222,7 +225,7 @@ class IuranNotificationService
      *                                tidak kirim dobel (dipakai scheduler).
      *                                Untuk kirim manual oleh admin, set false,
      *                                karena admin memang sengaja ingin kirim ulang.
-     * @return string  'firebase' | 'whatsapp' | 'gagal'
+     * @return string 'firebase' | 'whatsapp' | 'gagal'
      */
     public function kirimNotifikasi(
         $warga,
@@ -241,11 +244,13 @@ class IuranNotificationService
                 ->where('is_sent', true)
                 ->exists();
 
-            if ($sudahDikirim) return 'sudah_dikirim';
+            if ($sudahDikirim) {
+                return 'sudah_dikirim';
+            }
         }
 
         $berhasil = false;
-        $channel  = null;
+        $channel = null;
 
         // 1. Coba Firebase dulu
         $fcmTokens = $warga->user?->devices
@@ -254,43 +259,43 @@ class IuranNotificationService
             ->values()
             ->toArray() ?? [];
 
-        if (!empty($fcmTokens)) {
+        if (! empty($fcmTokens)) {
             try {
                 $this->firebase->sendBulk($fcmTokens, $title, $message);
                 $berhasil = true;
-                $channel  = 'firebase';
+                $channel = 'firebase';
             } catch (\Throwable $e) {
                 Log::warning('Firebase gagal, fallback ke WA', [
-                    'nik'   => $warga->nik,
+                    'nik' => $warga->nik,
                     'error' => $e->getMessage(),
                 ]);
             }
         }
 
         // 2. Fallback ke WA jika Firebase gagal atau tidak ada token
-        if (!$berhasil && $warga->no_hp) {
+        if (! $berhasil && $warga->no_hp) {
             $berhasil = $this->fonnte->send($warga->no_hp, $message, delay: 15);
-            $channel  = 'whatsapp';
+            $channel = 'whatsapp';
         }
 
         // Simpan ke riwayat notifikasi in-app (kalau warga punya akun)
         if ($warga->user) {
             \App\Models\Notification::create([
-                'title'   => $title,
+                'title' => $title,
                 'message' => $message,
-                'type'    => 'pengingat',
+                'type' => 'pengingat',
                 'user_id' => $warga->user->id,
-                'data'    => ['id_informasi_iuran' => $iuran->id],
+                'data' => ['id_informasi_iuran' => $iuran->id],
             ]);
         }
 
         // Simpan/update log (dipakai juga untuk dedupe scheduler nanti)
         NotificationLog::updateOrCreate(
             [
-                'nik'                => $warga->nik,
+                'nik' => $warga->nik,
                 'id_informasi_iuran' => $iuran->id,
-                'type'               => $type,
-                'periode'            => $periode,
+                'type' => $type,
+                'periode' => $periode,
             ],
             [
                 'is_sent' => $berhasil,
@@ -300,10 +305,10 @@ class IuranNotificationService
         );
 
         Log::info('Notifikasi iuran', [
-            'nik'      => $warga->nik,
-            'nama'     => $warga->nama_warga,
-            'type'     => $type,
-            'channel'  => $channel,
+            'nik' => $warga->nik,
+            'nama' => $warga->nama_warga,
+            'type' => $type,
+            'channel' => $channel,
             'berhasil' => $berhasil,
         ]);
 
@@ -311,23 +316,23 @@ class IuranNotificationService
     }
 
     // ===================================================================
-// TAMBAHAN di IuranNotificationService.php
-// Method ini untuk kasus kirim pesan bebas (tidak terikat 1 iuran spesifik),
-// misalnya ringkasan gabungan beberapa tunggakan iuran sekaligus.
-// Beda dengan kirimNotifikasi() yang butuh $iuran/$type/$periode untuk
-// keperluan dedupe di NotificationLog — method ini tidak menyentuh
-// NotificationLog sama sekali karena tidak relevan untuk kasus ini.
-// ===================================================================
+    // TAMBAHAN di IuranNotificationService.php
+    // Method ini untuk kasus kirim pesan bebas (tidak terikat 1 iuran spesifik),
+    // misalnya ringkasan gabungan beberapa tunggakan iuran sekaligus.
+    // Beda dengan kirimNotifikasi() yang butuh $iuran/$type/$periode untuk
+    // keperluan dedupe di NotificationLog — method ini tidak menyentuh
+    // NotificationLog sama sekali karena tidak relevan untuk kasus ini.
+    // ===================================================================
 
     /**
      * Kirim pesan bebas ke satu warga: Firebase dulu, fallback WA jika gagal/tidak ada device.
      *
-     * @return string  'firebase' | 'whatsapp' | 'gagal'
+     * @return string 'firebase' | 'whatsapp' | 'gagal'
      */
     public function kirimPesanKeWarga($warga, string $title, string $message, string $type = 'pengingat'): string
     {
         $berhasil = false;
-        $channel  = null;
+        $channel = null;
 
         // 1. Coba Firebase dulu
         $fcmTokens = $warga->user?->devices
@@ -336,39 +341,39 @@ class IuranNotificationService
             ->values()
             ->toArray() ?? [];
 
-        if (!empty($fcmTokens)) {
+        if (! empty($fcmTokens)) {
             try {
                 $this->firebase->sendBulk($fcmTokens, $title, $message);
                 $berhasil = true;
-                $channel  = 'firebase';
+                $channel = 'firebase';
             } catch (\Throwable $e) {
                 Log::warning('Firebase gagal, fallback ke WA', [
-                    'nik'   => $warga->nik,
+                    'nik' => $warga->nik,
                     'error' => $e->getMessage(),
                 ]);
             }
         }
 
         // 2. Fallback ke WA jika Firebase gagal atau tidak ada token
-        if (!$berhasil && $warga->no_hp) {
+        if (! $berhasil && $warga->no_hp) {
             $berhasil = $this->fonnte->send($warga->no_hp, $message, delay: 15);
-            $channel  = 'whatsapp';
+            $channel = 'whatsapp';
         }
 
         // Simpan ke riwayat notifikasi in-app (kalau warga punya akun)
         if ($warga->user) {
             \App\Models\Notification::create([
-                'title'   => $title,
+                'title' => $title,
                 'message' => $message,
-                'type'    => $type,
+                'type' => $type,
                 'user_id' => $warga->user->id,
             ]);
         }
 
         Log::info('Kirim pesan ke warga', [
-            'nik'      => $warga->nik,
-            'nama'     => $warga->nama_warga,
-            'channel'  => $channel,
+            'nik' => $warga->nik,
+            'nama' => $warga->nama_warga,
+            'channel' => $channel,
             'berhasil' => $berhasil,
         ]);
 
@@ -388,12 +393,14 @@ class IuranNotificationService
             ->values()
             ->toArray();
 
-        if (empty($tokens)) return;
+        if (empty($tokens)) {
+            return;
+        }
 
         try {
             $this->firebase->sendBulk($tokens, $title, $body);
         } catch (\Throwable $e) {
-            Log::error('Firebase bulk error: ' . $e->getMessage());
+            Log::error('Firebase bulk error: '.$e->getMessage());
         }
     }
 
@@ -408,13 +415,13 @@ class IuranNotificationService
         string $type
     ): string {
         $namaBulan = Carbon::create()->month($bulan)->translatedFormat('F');
-        $nominal   = number_format($iuran->jumlah_iuran, 0, ',', '.');
+        $nominal = number_format($iuran->jumlah_iuran, 0, ',', '.');
 
         $kalimat = match ($type) {
-            'bulanan_awal'   => "Ini adalah pengingat awal bahwa iuran bulan *{$namaBulan} {$tahun}* sudah dapat dibayarkan.",
+            'bulanan_awal' => "Ini adalah pengingat awal bahwa iuran bulan *{$namaBulan} {$tahun}* sudah dapat dibayarkan.",
             'bulanan_tengah' => "Hingga saat ini, iuran bulan *{$namaBulan} {$tahun}* Anda belum kami terima.",
-            'bulanan_akhir'  => "Ini adalah pengingat terakhir. Bulan *{$namaBulan} {$tahun}* akan segera berakhir dan iuran Anda belum kami terima.",
-            default          => '',
+            'bulanan_akhir' => "Ini adalah pengingat terakhir. Bulan *{$namaBulan} {$tahun}* akan segera berakhir dan iuran Anda belum kami terima.",
+            default => '',
         };
 
         return <<<MSG
@@ -440,16 +447,16 @@ class IuranNotificationService
         int $selisihHari,
         string $type
     ): string {
-        $nominal  = number_format($iuran->jumlah_iuran, 0, ',', '.');
+        $nominal = number_format($iuran->jumlah_iuran, 0, ',', '.');
         $almarhum = $iuran->nama_warga_meninggal
             ? " atas nama almarhum/almarhumah *{$iuran->nama_warga_meninggal}*"
             : '';
 
         $kalimat = match ($type) {
-            'kematian_h1'  => "Kami ingin menginformasikan bahwa telah diadakan iuran kematian yang perlu segera diselesaikan.",
-            'kematian_h7'  => "Sudah *7 hari* sejak iuran kematian ini dibuat, namun pembayaran Anda belum kami terima.",
-            'kematian_h30' => "Sudah *30 hari* sejak iuran kematian ini dibuat. Mohon segera menyelesaikan kewajiban pembayaran.",
-            default        => '',
+            'kematian_h1' => 'Kami ingin menginformasikan bahwa telah diadakan iuran kematian yang perlu segera diselesaikan.',
+            'kematian_h7' => 'Sudah *7 hari* sejak iuran kematian ini dibuat, namun pembayaran Anda belum kami terima.',
+            'kematian_h30' => 'Sudah *30 hari* sejak iuran kematian ini dibuat. Mohon segera menyelesaikan kewajiban pembayaran.',
+            default => '',
         };
 
         return <<<MSG

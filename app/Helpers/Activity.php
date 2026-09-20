@@ -2,7 +2,7 @@
 
 use App\Models\ActivityLog;
 
-if (!function_exists('activityLog')) {
+if (! function_exists('activityLog')) {
 
     function activityLog(string $action, string $description)
     {
