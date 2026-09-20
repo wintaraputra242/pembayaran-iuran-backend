@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
 use App\Models\AnggotaRegu;
 use App\Models\InformasiIuran;
 use App\Models\Regu;
@@ -11,7 +10,6 @@ use App\Models\Warga;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class DropdownController extends Controller
 {
@@ -65,19 +63,19 @@ class DropdownController extends Controller
             'id_informasi_iuran' => 'required|exists:informasi_iuran,id',
         ], [
             'id_informasi_iuran.required' => 'Informasi iuran wajib dipilih.',
-            'id_informasi_iuran.exists'   => 'Informasi iuran yang dipilih tidak valid atau tidak ditemukan.',
+            'id_informasi_iuran.exists' => 'Informasi iuran yang dipilih tidak valid atau tidak ditemukan.',
         ]);
 
-        $user  = Auth::user();
+        $user = Auth::user();
         $iuran = InformasiIuran::findOrFail($request->id_informasi_iuran);
 
         $filterReguId = $request->filled('id_regu') ? $request->id_regu : null;
-        $reguKetua    = null;
+        $reguKetua = null;
 
         if ($user->role === 'ketua_regu') {
             $reguKetua = $user->regu()->whereNull('deleted_at')->value('id');
 
-            if (!$reguKetua) {
+            if (! $reguKetua) {
                 return ApiResponse::success([], 'Data warga berhasil diambil.');
             }
         }
@@ -101,7 +99,7 @@ class DropdownController extends Controller
                         ->where('status_keaktifan', 'aktif');
                 });
             })
-            ->when(!$reguKetua && $filterReguId, function ($query) use ($filterReguId) {
+            ->when(! $reguKetua && $filterReguId, function ($query) use ($filterReguId) {
                 $query->whereHas('anggotaRegu', function ($q) use ($filterReguId) {
                     $q->where('id_regu', $filterReguId)
                         ->whereNull('deleted_at')
@@ -121,9 +119,10 @@ class DropdownController extends Controller
                             if (is_string($bulan)) {
                                 $bulan = json_decode($bulan, true) ?? [];
                             }
+
                             return is_array($bulan) ? $bulan : [];
                         })
-                        ->map(fn($b) => (int) $b)
+                        ->map(fn ($b) => (int) $b)
                         ->unique()
                         ->values();
 
@@ -154,9 +153,10 @@ class DropdownController extends Controller
                         if (is_string($bulan)) {
                             $bulan = json_decode($bulan, true) ?? [];
                         }
+
                         return is_array($bulan) ? $bulan : [];
                     })
-                    ->map(fn($b) => (int) $b)
+                    ->map(fn ($b) => (int) $b)
                     ->unique()
                     ->sort()
                     ->values()
@@ -165,13 +165,13 @@ class DropdownController extends Controller
                 $namaRegu = $anggotaAktif->regu->nama_regu ?? null;
 
                 return [
-                    'nik'                 => $warga->nik,
-                    'nama_warga'          => $warga->nama_warga,
-                    'regu'                => $namaRegu,
-                    'regu_id'             => $anggotaAktif->regu->id ?? null,
+                    'nik' => $warga->nik,
+                    'nama_warga' => $warga->nama_warga,
+                    'regu' => $namaRegu,
+                    'regu_id' => $anggotaAktif->regu->id ?? null,
                     'bulan_sudah_dibayar' => $bulanSudahDibayar,
-                    '_tanpa_regu'         => $namaRegu === null ? 1 : 0,
-                    '_regu_sort'          => $namaRegu ?? '',
+                    '_tanpa_regu' => $namaRegu === null ? 1 : 0,
+                    '_regu_sort' => $namaRegu ?? '',
                 ];
             })
             ->sortBy([
@@ -181,6 +181,7 @@ class DropdownController extends Controller
             ])
             ->map(function ($item) {
                 unset($item['_tanpa_regu'], $item['_regu_sort']);
+
                 return $item;
             })
             ->values();
@@ -198,7 +199,7 @@ class DropdownController extends Controller
 
         $regu = Regu::where('id_user', $user->id)->first();
 
-        if (!$regu) {
+        if (! $regu) {
             return ApiResponse::error('Regu tidak ditemukan.', null, 404);
         }
 
@@ -209,10 +210,10 @@ class DropdownController extends Controller
             ->get()
             ->map(function ($item) {
                 return [
-                    'id'         => $item->id,
-                    'nik'        => $item->nik,
+                    'id' => $item->id,
+                    'nik' => $item->nik,
                     'nama_warga' => $item->warga->nama_warga ?? null,
-                    'is_leader'  => $item->is_leader,
+                    'is_leader' => $item->is_leader,
                 ];
             });
 

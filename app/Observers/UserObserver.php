@@ -20,13 +20,13 @@ class UserObserver
     {
         // Hard delete device tokens (FCM token tidak berguna setelah user dihapus)
         $user->devices()->delete();
- 
+
         // Soft delete notifikasi milik user ini
         $user->notifications()
-             ->whereNull('deleted_at')
-             ->each(fn($notif) => $notif->delete());
+            ->whereNull('deleted_at')
+            ->each(fn ($notif) => $notif->delete());
     }
- 
+
     /**
      * Dipanggil SETELAH restore() selesai.
      *
@@ -37,12 +37,11 @@ class UserObserver
         // Restore notifikasi yang dihapus bersamaan dengan user
         // (toleransi 5 detik dari waktu user dihapus)
         $user->notifications()
-             ->withTrashed()
-             ->whereBetween('deleted_at', [
-                 $user->deleted_at->subSeconds(5),
-                 $user->deleted_at->addSeconds(5),
-             ])
-             ->each(fn($notif) => $notif->restore());
+            ->withTrashed()
+            ->whereBetween('deleted_at', [
+                $user->deleted_at->subSeconds(5),
+                $user->deleted_at->addSeconds(5),
+            ])
+            ->each(fn ($notif) => $notif->restore());
     }
 }
-

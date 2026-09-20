@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Helpers\ApiResponse;
 use App\Models\Notification;
 use Illuminate\Http\Request;
-use App\Helpers\ApiResponse;
 use Illuminate\Support\Facades\Auth;
 
 class NotificationController extends Controller
@@ -53,7 +52,7 @@ class NotificationController extends Controller
 
         $notification = Notification::where('user_id', $userId)->find($id);
 
-        if (!$notification) {
+        if (! $notification) {
             return ApiResponse::error('Notifikasi tidak ditemukan.', null, 404);
         }
 

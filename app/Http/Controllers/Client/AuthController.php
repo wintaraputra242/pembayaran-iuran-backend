@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\Client;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
 use App\Models\UserDevice;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +18,6 @@ use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
-
     public function checkNik(Request $request)
     {
         $request->validate([
@@ -28,10 +27,10 @@ class AuthController extends Controller
         $input = trim($request->nik);
 
         // Hanya izinkan format NIK (16 digit angka) atau nomor HP (08xxxxxxxxxx / 62xxxxxxxxxx)
-        $isNik   = preg_match('/^\d{16}$/', $input);
-        $isNoHp  = preg_match('/^(0|62)8[0-9]{8,12}$/', $input);
+        $isNik = preg_match('/^\d{16}$/', $input);
+        $isNoHp = preg_match('/^(0|62)8[0-9]{8,12}$/', $input);
 
-        if (!$isNik && !$isNoHp) {
+        if (! $isNik && ! $isNoHp) {
             return ApiResponse::error('NIK atau nomor HP tidak ditemukan.', null, 422);
         }
 
@@ -43,25 +42,24 @@ class AuthController extends Controller
             ->where('role', '!=', 'admin') // sesuaikan dengan struktur role di sistem Anda
             ->first();
 
-        if (!$user) {
+        if (! $user) {
             return ApiResponse::error('NIK atau nomor HP tidak ditemukan.', null, 404);
         }
 
         return ApiResponse::success([
-            'has_password' => !is_null($user->password),
+            'has_password' => ! is_null($user->password),
         ], 'Berhasil.');
     }
-
 
     public function login(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'nik'      => 'required|string',
+            'nik' => 'required|string',
             'password' => 'required|string|min:6',
         ], [
-            'nik.required'      => 'NIK / No. Handphone wajib diisi.',
+            'nik.required' => 'NIK / No. Handphone wajib diisi.',
             'password.required' => 'Password wajib diisi.',
-            'password.min'      => 'Password minimal 6 karakter.',
+            'password.min' => 'Password minimal 6 karakter.',
         ]);
 
         if ($validator->fails()) {
@@ -73,11 +71,11 @@ class AuthController extends Controller
             ->orWhere('no_hp', $request->nik)
             ->first();
 
-        if (!$user) {
+        if (! $user) {
             return ApiResponse::error('NIK atau nomor HP tidak ditemukan.', null, 404);
         }
 
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             return ApiResponse::error('Akun Anda telah dinonaktifkan. Hubungi administrator.', null, 403);
         }
 
@@ -85,7 +83,7 @@ class AuthController extends Controller
             $user->password = Hash::make($request->password);
             $user->save();
         } else {
-            if (!Hash::check($request->password, $user->password)) {
+            if (! Hash::check($request->password, $user->password)) {
                 return ApiResponse::error('Login gagal, password salah.', 'Password salah.', 401);
             }
         }
@@ -96,13 +94,13 @@ class AuthController extends Controller
         if ($request->filled('fcm_token')) {
             UserDevice::updateOrCreate(
                 [
-                    'user_id'  => $user->id,
+                    'user_id' => $user->id,
                     'app_type' => 'client',
                 ],
                 [
-                    'fcm_token'    => $request->fcm_token,
-                    'device_name'  => $request->header('User-Agent'),
-                    'platform'     => $request->input('platform', 'web'),
+                    'fcm_token' => $request->fcm_token,
+                    'device_name' => $request->header('User-Agent'),
+                    'platform' => $request->input('platform', 'web'),
                     'last_used_at' => now(),
                 ]
             );
@@ -111,9 +109,9 @@ class AuthController extends Controller
         $this->writeLog($user->id, 'login', "Login berhasil: {$user->name} [{$user->role}]", $request);
 
         return ApiResponse::success([
-            'user'         => $this->formatProfile($user->fresh()->load('warga')),
+            'user' => $this->formatProfile($user->fresh()->load('warga')),
             'access_token' => $token,
-            'token_type'   => 'Bearer',
+            'token_type' => 'Bearer',
         ], 'Login berhasil.');
     }
 
@@ -145,13 +143,13 @@ class AuthController extends Controller
 
     public function updateProfile(Request $request): JsonResponse
     {
-        $user  = $request->user();
+        $user = $request->user();
         $warga = $user->warga;
 
         $validator = Validator::make($request->all(), [
             'nama_warga' => 'sometimes|required|string|max:100',
-            'alamat'     => 'sometimes|required|string',
-            'no_hp'      => [
+            'alamat' => 'sometimes|required|string',
+            'no_hp' => [
                 'sometimes',
                 'required',
                 'string',
@@ -159,16 +157,16 @@ class AuthController extends Controller
                 Rule::unique('warga', 'no_hp')->ignore($warga?->nik, 'nik'),
                 Rule::unique('users', 'no_hp')->ignore($user->id),
             ],
-            'password'   => 'nullable|string|min:6|confirmed',
+            'password' => 'nullable|string|min:6|confirmed',
         ], [
-            'nama_warga.required'  => 'Nama wajib diisi.',
-            'nama_warga.max'       => 'Nama maksimal 100 karakter.',
-            'alamat.required'      => 'Alamat wajib diisi.',
-            'no_hp.required'       => 'Nomor HP wajib diisi.',
-            'no_hp.max'            => 'Nomor HP maksimal 20 karakter.',
-            'no_hp.unique'         => 'Nomor HP sudah digunakan oleh warga lain.',
-            'password.min'         => 'Password minimal 6 karakter.',
-            'password.confirmed'   => 'Konfirmasi password tidak cocok.',
+            'nama_warga.required' => 'Nama wajib diisi.',
+            'nama_warga.max' => 'Nama maksimal 100 karakter.',
+            'alamat.required' => 'Alamat wajib diisi.',
+            'no_hp.required' => 'Nomor HP wajib diisi.',
+            'no_hp.max' => 'Nomor HP maksimal 20 karakter.',
+            'no_hp.unique' => 'Nomor HP sudah digunakan oleh warga lain.',
+            'password.min' => 'Password minimal 6 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak cocok.',
         ]);
 
         if ($validator->fails()) {
@@ -181,9 +179,9 @@ class AuthController extends Controller
             if ($warga) {
                 $warga->update(array_filter([
                     'nama_warga' => $request->nama_warga,
-                    'alamat'     => $request->alamat,
-                    'no_hp'      => $request->no_hp,
-                ], fn($v) => !is_null($v)));
+                    'alamat' => $request->alamat,
+                    'no_hp' => $request->no_hp,
+                ], fn ($v) => ! is_null($v)));
 
                 if ($request->filled('nama_warga')) {
                     $user->name = $request->nama_warga;
@@ -209,25 +207,25 @@ class AuthController extends Controller
             ], 'Profil berhasil diperbarui.');
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return ApiResponse::error('Terjadi kesalahan.', $e->getMessage(), 500);
         }
     }
 
-
     private function formatProfile($user)
     {
         return [
-            'id'       => $user->id,
-            'name'     => $user->name,
+            'id' => $user->id,
+            'name' => $user->name,
             'username' => $user->username,
-            'role'     => $user->role,
-            'warga'    => $user->warga ? [
-                'nik'              => $user->warga->nik,
-                'nama_warga'       => $user->warga->nama_warga,
-                'alamat'           => $user->warga->alamat,
-                'no_hp'            => $user->warga->no_hp,
+            'role' => $user->role,
+            'warga' => $user->warga ? [
+                'nik' => $user->warga->nik,
+                'nama_warga' => $user->warga->nama_warga,
+                'alamat' => $user->warga->alamat,
+                'no_hp' => $user->warga->no_hp,
                 'status_keaktifan' => $user->warga->status_keaktifan,
-                'regu'             => $user->warga->anggotaRegu()
+                'regu' => $user->warga->anggotaRegu()
                     ->whereNull('deleted_at')
                     ->where('status_keaktifan', 'aktif')
                     ->with('regu:id,nama_regu')
@@ -242,14 +240,14 @@ class AuthController extends Controller
     {
         try {
             ActivityLog::create([
-                'id_user'           => $userId,
+                'id_user' => $userId,
                 'nama_user_snapshot' => $userId
                     ? optional(Auth::user())->name
                     : null,
-                'action'            => $action,
-                'description'       => $description,
-                'ip_address'        => $request->ip(),
-                'user_agent'        => $request->userAgent(),
+                'action' => $action,
+                'description' => $description,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");

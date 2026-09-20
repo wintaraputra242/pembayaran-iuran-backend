@@ -20,8 +20,8 @@ class NotificationLog extends Model
     ];
 
     protected $casts = [
-        'is_sent'  => 'boolean',
-        'sent_at'  => 'datetime',
+        'is_sent' => 'boolean',
+        'sent_at' => 'datetime',
     ];
 
     public function warga(): BelongsTo

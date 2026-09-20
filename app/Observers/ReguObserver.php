@@ -17,10 +17,10 @@ class ReguObserver
     {
         // Soft delete semua anggota regu yang belum terhapus
         $regu->anggotaRegu()
-             ->whereNull('deleted_at')
-             ->each(fn($anggota) => $anggota->delete());
+            ->whereNull('deleted_at')
+            ->each(fn ($anggota) => $anggota->delete());
     }
- 
+
     /**
      * Dipanggil SEBELUM restore() dieksekusi.
      *
@@ -32,12 +32,11 @@ class ReguObserver
         // Restore anggota yang di-soft delete pada waktu yang sama
         // dengan waktu regu dihapus (toleransi 5 detik)
         $regu->anggotaRegu()
-             ->withTrashed()
-             ->whereBetween('deleted_at', [
-                 $regu->deleted_at->subSeconds(5),
-                 $regu->deleted_at->addSeconds(5),
-             ])
-             ->each(fn($anggota) => $anggota->restore());
+            ->withTrashed()
+            ->whereBetween('deleted_at', [
+                $regu->deleted_at->subSeconds(5),
+                $regu->deleted_at->addSeconds(5),
+            ])
+            ->each(fn ($anggota) => $anggota->restore());
     }
 }
-

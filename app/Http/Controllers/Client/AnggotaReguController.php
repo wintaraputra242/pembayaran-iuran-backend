@@ -2,20 +2,20 @@
 
 namespace App\Http\Controllers\Client;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Controller;
 use App\Models\AnggotaRegu;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class AnggotaReguController extends Controller
 {
     public function getAnggotaRegu(Request $request): JsonResponse
     {
-        $user  = $request->user();
+        $user = $request->user();
         $warga = $user->warga;
 
-        if (!$warga) {
+        if (! $warga) {
             return ApiResponse::error('Data warga tidak ditemukan.', null, 404);
         }
 
@@ -24,7 +24,7 @@ class AnggotaReguController extends Controller
             ->with(['regu.ketuaRegu:id,name', 'regu.anggotaAktif.warga:nik,nama_warga,no_hp'])
             ->first();
 
-        if (!$anggota) {
+        if (! $anggota) {
             return ApiResponse::error('Anda tidak terdaftar dalam regu manapun.', null, 404);
         }
 
@@ -32,18 +32,18 @@ class AnggotaReguController extends Controller
 
         return ApiResponse::success([
             'regu' => [
-                'id'               => $regu->id,
-                'nama_regu'        => $regu->nama_regu,
+                'id' => $regu->id,
+                'nama_regu' => $regu->nama_regu,
                 'status_keaktifan' => $regu->status_keaktifan,
-                'ketua'            => [
-                    'id'   => $regu->ketuaRegu?->id,
+                'ketua' => [
+                    'id' => $regu->ketuaRegu?->id,
                     'name' => $regu->ketuaRegu?->name,
                 ],
-                'anggota' => $regu->anggotaAktif->map(fn($a) => [
-                    'nik'              => $a->warga?->nik,
-                    'nama_warga'       => $a->warga?->nama_warga,
-                    'no_hp'            => $a->warga?->no_hp,
-                    'is_leader'        => (bool) $a->is_leader,
+                'anggota' => $regu->anggotaAktif->map(fn ($a) => [
+                    'nik' => $a->warga?->nik,
+                    'nama_warga' => $a->warga?->nama_warga,
+                    'no_hp' => $a->warga?->no_hp,
+                    'is_leader' => (bool) $a->is_leader,
                     'status_keaktifan' => $a->status_keaktifan,
                 ]),
                 'total_anggota' => $regu->anggotaAktif->count(),

@@ -3,10 +3,10 @@
 namespace App\Imports;
 
 use App\Models\Warga;
-use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
 class WargaImport implements ToCollection, WithHeadingRow
 {
@@ -22,13 +22,12 @@ class WargaImport implements ToCollection, WithHeadingRow
                 continue;
             }
 
-
             Warga::create([
-                'nik'              => $row['nik'],
-                'nama_warga'       => Str::upper($row['nama_warga']),
-                'alamat'           => $row['alamat'] ?? '',
-                'hp'               => $row['hp'] ?? '',
-                'id_user'          => null,
+                'nik' => $row['nik'],
+                'nama_warga' => Str::upper($row['nama_warga']),
+                'alamat' => $row['alamat'] ?? '',
+                'hp' => $row['hp'] ?? '',
+                'id_user' => null,
                 'status_keaktifan' => 'aktif',
             ]);
         }

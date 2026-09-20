@@ -13,41 +13,41 @@ use Illuminate\Support\Facades\Auth;
 class AiChatbotController extends Controller
 {
     private array $intents = [
-        'belum_bayar_bulan_ini'  => ['belum bayar bulan ini', 'belum bayar bulan', 'belum bayar ini', 'siapa belum bayar'],
-        'total_pemasukan_bulan'  => ['total pemasukan bulan ini', 'pemasukan bulan ini', 'total pemasukan', 'berapa pemasukan'],
-        'total_tunggakan'        => ['total tunggakan', 'berapa tunggakan', 'tunggakan warga', 'total hutang'],
-        'pembayaran_hari_ini'    => ['pembayaran hari ini', 'bayar hari ini', 'transaksi hari ini'],
-        'jumlah_warga'           => ['jumlah warga', 'berapa warga', 'total warga', 'jumlah kk', 'berapa kk'],
-        'warga_aktif'            => ['warga aktif', 'berapa warga aktif', 'jumlah warga aktif'],
-        'persentase_bayar'       => ['persentase', 'persen warga', 'berapa persen', 'tingkat kepatuhan'],
-        'bulan_tertinggi'        => ['bulan tertinggi', 'bulan paling tinggi', 'pembayaran tertinggi'],
-        'rata_rata_pembayaran'   => ['rata-rata pembayaran', 'rata rata pembayaran', 'rata pembayaran'],
+        'belum_bayar_bulan_ini' => ['belum bayar bulan ini', 'belum bayar bulan', 'belum bayar ini', 'siapa belum bayar'],
+        'total_pemasukan_bulan' => ['total pemasukan bulan ini', 'pemasukan bulan ini', 'total pemasukan', 'berapa pemasukan'],
+        'total_tunggakan' => ['total tunggakan', 'berapa tunggakan', 'tunggakan warga', 'total hutang'],
+        'pembayaran_hari_ini' => ['pembayaran hari ini', 'bayar hari ini', 'transaksi hari ini'],
+        'jumlah_warga' => ['jumlah warga', 'berapa warga', 'total warga', 'jumlah kk', 'berapa kk'],
+        'warga_aktif' => ['warga aktif', 'berapa warga aktif', 'jumlah warga aktif'],
+        'persentase_bayar' => ['persentase', 'persen warga', 'berapa persen', 'tingkat kepatuhan'],
+        'bulan_tertinggi' => ['bulan tertinggi', 'bulan paling tinggi', 'pembayaran tertinggi'],
+        'rata_rata_pembayaran' => ['rata-rata pembayaran', 'rata rata pembayaran', 'rata pembayaran'],
         'siapa_perlu_notifikasi' => ['siapa notifikasi', 'perlu notifikasi', 'kirim notifikasi', 'siapa reminder'],
         'warga_sering_terlambat' => ['sering terlambat', 'paling sering terlambat', 'warga terlambat', 'siapa terlambat'],
-        'ringkasan_bulan_ini'    => ['ringkasan bulan ini', 'ringkas bulan ini', 'ringkasan pembayaran', 'kondisi pembayaran'],
+        'ringkasan_bulan_ini' => ['ringkasan bulan ini', 'ringkas bulan ini', 'ringkasan pembayaran', 'kondisi pembayaran'],
     ];
 
     public function chat(Request $request)
     {
         $request->validate(['message' => 'required|string|max:500']);
 
-        $user    = Auth::user();
-        $reguId  = $this->getReguId($user);
+        $user = Auth::user();
+        $reguId = $this->getReguId($user);
         $message = strtolower(trim($request->message));
-        $intent  = $this->detectIntent($message);
-        $result  = $this->handleIntent($intent, $message, $reguId);
+        $intent = $this->detectIntent($message);
+        $result = $this->handleIntent($intent, $message, $reguId);
 
         return response()->json([
-            'status'  => true,
-            'intent'  => $intent,
+            'status' => true,
+            'intent' => $intent,
             'message' => $result['message'],
-            'data'    => $result['data'] ?? null,
+            'data' => $result['data'] ?? null,
         ]);
     }
 
     public function suggestedQuestions()
     {
-        $user   = Auth::user();
+        $user = Auth::user();
         $isKetua = $user->role === 'ketua_regu';
 
         $pembayaranQuestions = $isKetua
@@ -75,18 +75,18 @@ class AiChatbotController extends Controller
 
         $data = [
             [
-                'kategori'  => 'Pembayaran',
-                'icon'      => 'ri-money-dollar-circle-line',
+                'kategori' => 'Pembayaran',
+                'icon' => 'ri-money-dollar-circle-line',
                 'questions' => $pembayaranQuestions,
             ],
             [
-                'kategori'  => $isKetua ? 'Anggota Regu' : 'Warga',
-                'icon'      => 'ri-group-line',
+                'kategori' => $isKetua ? 'Anggota Regu' : 'Warga',
+                'icon' => 'ri-group-line',
                 'questions' => $wargaQuestions,
             ],
             [
-                'kategori'  => 'Ringkasan',
-                'icon'      => 'ri-file-text-line',
+                'kategori' => 'Ringkasan',
+                'icon' => 'ri-file-text-line',
                 'questions' => [
                     'Ringkas pembayaran bulan ini',
                     'Siapa yang paling sering terlambat?',
@@ -96,10 +96,10 @@ class AiChatbotController extends Controller
         ];
 
         // Tambah statistik hanya untuk admin
-        if (!$isKetua) {
+        if (! $isKetua) {
             array_splice($data, 2, 0, [[
-                'kategori'  => 'Statistik',
-                'icon'      => 'ri-bar-chart-line',
+                'kategori' => 'Statistik',
+                'icon' => 'ri-bar-chart-line',
                 'questions' => [
                     'Berapa persentase warga yang sudah membayar?',
                     'Bulan apa pembayaran paling tinggi?',
@@ -116,7 +116,9 @@ class AiChatbotController extends Controller
     // -------------------------------------------------------
     private function getReguId($user): ?int
     {
-        if ($user->role !== 'ketua_regu') return null;
+        if ($user->role !== 'ketua_regu') {
+            return null;
+        }
 
         return $user->regu()->whereNull('deleted_at')->value('id');
     }
@@ -146,9 +148,12 @@ class AiChatbotController extends Controller
     {
         foreach ($this->intents as $intent => $keywords) {
             foreach ($keywords as $keyword) {
-                if (str_contains($message, $keyword)) return $intent;
+                if (str_contains($message, $keyword)) {
+                    return $intent;
+                }
             }
         }
+
         return 'unknown';
     }
 
@@ -158,19 +163,19 @@ class AiChatbotController extends Controller
     private function handleIntent(string $intent, string $message, ?int $reguId): array
     {
         return match ($intent) {
-            'belum_bayar_bulan_ini'  => $this->getBelumBayarBulanIni($reguId),
-            'total_pemasukan_bulan'  => $this->getTotalPemasukanBulan($reguId),
-            'total_tunggakan'        => $this->getTotalTunggakan($reguId),
-            'pembayaran_hari_ini'    => $this->getPembayaranHariIni($reguId),
-            'jumlah_warga'           => $this->getJumlahWarga($reguId),
-            'warga_aktif'            => $this->getWargaAktif($reguId),
-            'persentase_bayar'       => $this->getPersentaseBayar($reguId),
-            'bulan_tertinggi'        => $this->getBulanTertinggi($reguId),
-            'rata_rata_pembayaran'   => $this->getRataRataPembayaran($reguId),
+            'belum_bayar_bulan_ini' => $this->getBelumBayarBulanIni($reguId),
+            'total_pemasukan_bulan' => $this->getTotalPemasukanBulan($reguId),
+            'total_tunggakan' => $this->getTotalTunggakan($reguId),
+            'pembayaran_hari_ini' => $this->getPembayaranHariIni($reguId),
+            'jumlah_warga' => $this->getJumlahWarga($reguId),
+            'warga_aktif' => $this->getWargaAktif($reguId),
+            'persentase_bayar' => $this->getPersentaseBayar($reguId),
+            'bulan_tertinggi' => $this->getBulanTertinggi($reguId),
+            'rata_rata_pembayaran' => $this->getRataRataPembayaran($reguId),
             'siapa_perlu_notifikasi' => $this->getSiapaPerluNotifikasi($reguId),
             'warga_sering_terlambat' => $this->getWargaSeringTerlambat($reguId),
-            'ringkasan_bulan_ini'    => $this->getRingkasanBulanIni($reguId),
-            default                  => $this->getUnknown(),
+            'ringkasan_bulan_ini' => $this->getRingkasanBulanIni($reguId),
+            default => $this->getUnknown(),
         };
     }
 
@@ -187,7 +192,7 @@ class AiChatbotController extends Controller
             ->where('status_aktif', true)
             ->first();
 
-        if (!$iuran) {
+        if (! $iuran) {
             return ['message' => "Belum ada iuran bulanan yang aktif untuk tahun {$tahun}."];
         }
 
@@ -200,19 +205,19 @@ class AiChatbotController extends Controller
         $belumBayar = WargaHelper::getWargaWajibBayar($bulan, $tahun, $sudahBayarNik, $reguId);
 
         $namaBulan = Carbon::create()->month($bulan)->translatedFormat('F');
-        $scope     = $reguId ? 'di regu Anda' : '';
+        $scope = $reguId ? 'di regu Anda' : '';
 
         if ($belumBayar->isEmpty()) {
             return [
                 'message' => "🎉 Semua warga {$scope} sudah membayar iuran bulan *{$namaBulan} {$tahun}*!",
-                'data'    => [],
+                'data' => [],
             ];
         }
 
         return [
             'message' => "Terdapat *{$belumBayar->count()} warga* {$scope} yang belum membayar iuran bulan *{$namaBulan} {$tahun}*:",
-            'data'    => $belumBayar->map(fn($w) => [
-                'nik'        => $w->nik,
+            'data' => $belumBayar->map(fn ($w) => [
+                'nik' => $w->nik,
                 'nama_warga' => $w->nama_warga,
             ]),
         ];
@@ -233,10 +238,10 @@ class AiChatbotController extends Controller
             });
         }
 
-        $total     = $query->sum('total_bayar');
+        $total = $query->sum('total_bayar');
         $namaBulan = Carbon::create()->month((int) $bulan)->translatedFormat('F');
-        $formatted = 'Rp ' . number_format($total, 0, ',', '.');
-        $scope     = $reguId ? ' dari regu Anda' : '';
+        $formatted = 'Rp '.number_format($total, 0, ',', '.');
+        $scope = $reguId ? ' dari regu Anda' : '';
 
         return [
             'message' => "💰 Total pemasukan{$scope} bulan *{$namaBulan} {$tahun}* adalah *{$formatted}*.",
@@ -253,7 +258,7 @@ class AiChatbotController extends Controller
             ->where('status_aktif', true)
             ->first();
 
-        if (!$iuran) {
+        if (! $iuran) {
             return ['message' => "Belum ada iuran bulanan aktif untuk tahun {$tahun}."];
         }
 
@@ -265,10 +270,10 @@ class AiChatbotController extends Controller
             ->pluck('nik')
             ->toArray();
 
-        $belumBayar     = WargaHelper::getWargaWajibBayar($bulan, $tahun, $sudahBayarNik, $reguId)->count();
+        $belumBayar = WargaHelper::getWargaWajibBayar($bulan, $tahun, $sudahBayarNik, $reguId)->count();
         $totalTunggakan = $belumBayar * $iuran->jumlah_iuran;
-        $formatted      = 'Rp ' . number_format($totalTunggakan, 0, ',', '.');
-        $scope          = $reguId ? ' regu Anda' : '';
+        $formatted = 'Rp '.number_format($totalTunggakan, 0, ',', '.');
+        $scope = $reguId ? ' regu Anda' : '';
 
         return [
             'message' => "📊 Total tunggakan{$scope} tahun {$tahun}: *{$formatted}* dari *{$belumBayar} warga* yang belum membayar.",
@@ -299,10 +304,10 @@ class AiChatbotController extends Controller
         $scope = $reguId ? ' dari regu Anda' : '';
 
         return [
-            'message' => "✅ Terdapat *{$pembayaran->count()} pembayaran*{$scope} hari ini dengan total *Rp " . number_format($total, 0, ',', '.') . "*.",
-            'data'    => $pembayaran->map(fn($p) => [
-                'nama_warga'  => $p->warga->nama_warga ?? $p->nama_warga_snapshot,
-                'total_bayar' => 'Rp ' . number_format($p->total_bayar, 0, ',', '.'),
+            'message' => "✅ Terdapat *{$pembayaran->count()} pembayaran*{$scope} hari ini dengan total *Rp ".number_format($total, 0, ',', '.').'*.',
+            'data' => $pembayaran->map(fn ($p) => [
+                'nama_warga' => $p->warga->nama_warga ?? $p->nama_warga_snapshot,
+                'total_bayar' => 'Rp '.number_format($p->total_bayar, 0, ',', '.'),
             ]),
         ];
     }
@@ -311,13 +316,14 @@ class AiChatbotController extends Controller
     {
         if ($reguId) {
             $total = $this->wargaQuery($reguId)->count();
+
             return [
                 'message' => "👥 Jumlah anggota regu Anda: *{$total} KK*.",
             ];
         }
 
-        $total    = Warga::whereNull('deleted_at')->count();
-        $aktif    = Warga::where('status_keaktifan', 'aktif')->whereNull('deleted_at')->count();
+        $total = Warga::whereNull('deleted_at')->count();
+        $aktif = Warga::where('status_keaktifan', 'aktif')->whereNull('deleted_at')->count();
         $nonaktif = $total - $aktif;
 
         return [
@@ -346,7 +352,7 @@ class AiChatbotController extends Controller
             ->where('status_aktif', true)
             ->first();
 
-        if (!$iuran) {
+        if (! $iuran) {
             return ['message' => "Belum ada iuran bulanan aktif untuk tahun {$tahun}."];
         }
 
@@ -364,11 +370,11 @@ class AiChatbotController extends Controller
 
         $sudahBayar = $sudahBayarQuery->distinct('nik')->count('nik');
         $persentase = $totalWarga > 0 ? round(($sudahBayar / $totalWarga) * 100, 1) : 0;
-        $namaBulan  = Carbon::create()->month($bulan)->translatedFormat('F');
-        $scope      = $reguId ? ' regu Anda' : '';
+        $namaBulan = Carbon::create()->month($bulan)->translatedFormat('F');
+        $scope = $reguId ? ' regu Anda' : '';
 
         return [
-            'message' => "📈 Tingkat kepatuhan pembayaran{$scope} bulan *{$namaBulan} {$tahun}*:\n• Sudah bayar: *{$sudahBayar} warga* ({$persentase}%)\n• Belum bayar: *" . ($totalWarga - $sudahBayar) . " warga*",
+            'message' => "📈 Tingkat kepatuhan pembayaran{$scope} bulan *{$namaBulan} {$tahun}*:\n• Sudah bayar: *{$sudahBayar} warga* ({$persentase}%)\n• Belum bayar: *".($totalWarga - $sudahBayar).' warga*',
         ];
     }
 
@@ -391,13 +397,13 @@ class AiChatbotController extends Controller
             ->orderByDesc('total')
             ->first();
 
-        if (!$data) {
+        if (! $data) {
             return ['message' => "Belum ada data pembayaran untuk tahun {$tahun}."];
         }
 
         $namaBulan = Carbon::create()->month($data->bulan)->translatedFormat('F');
-        $formatted = 'Rp ' . number_format($data->total, 0, ',', '.');
-        $scope     = $reguId ? ' regu Anda' : '';
+        $formatted = 'Rp '.number_format($data->total, 0, ',', '.');
+        $scope = $reguId ? ' regu Anda' : '';
 
         return [
             'message' => "🏆 Bulan dengan pembayaran tertinggi{$scope} di tahun {$tahun} adalah *{$namaBulan}* dengan total *{$formatted}*.",
@@ -426,9 +432,9 @@ class AiChatbotController extends Controller
             return ['message' => "Belum ada data pembayaran untuk tahun {$tahun}."];
         }
 
-        $rataRata  = $data->avg('total');
-        $formatted = 'Rp ' . number_format($rataRata, 0, ',', '.');
-        $scope     = $reguId ? ' regu Anda' : '';
+        $rataRata = $data->avg('total');
+        $formatted = 'Rp '.number_format($rataRata, 0, ',', '.');
+        $scope = $reguId ? ' regu Anda' : '';
 
         return [
             'message' => "📊 Rata-rata pembayaran per bulan{$scope} di tahun {$tahun}: *{$formatted}*.",
@@ -445,7 +451,7 @@ class AiChatbotController extends Controller
             ->where('status_aktif', true)
             ->first();
 
-        if (!$iuran) {
+        if (! $iuran) {
             return ['message' => "Belum ada iuran bulanan aktif untuk tahun {$tahun}."];
         }
 
@@ -455,10 +461,10 @@ class AiChatbotController extends Controller
             ->pluck('nik')
             ->toArray();
 
-        $warga     = WargaHelper::getWargaWajibBayar($bulan, $tahun, $sudahBayarNik, $reguId)
-            ->filter(fn($w) => $w->no_hp);
+        $warga = WargaHelper::getWargaWajibBayar($bulan, $tahun, $sudahBayarNik, $reguId)
+            ->filter(fn ($w) => $w->no_hp);
         $namaBulan = Carbon::create()->month($bulan)->translatedFormat('F');
-        $scope     = $reguId ? ' di regu Anda' : '';
+        $scope = $reguId ? ' di regu Anda' : '';
 
         if ($warga->isEmpty()) {
             return ['message' => "✅ Tidak ada warga{$scope} yang perlu dikirim notifikasi untuk bulan *{$namaBulan}*."];
@@ -466,9 +472,9 @@ class AiChatbotController extends Controller
 
         return [
             'message' => "🔔 Terdapat *{$warga->count()} warga*{$scope} yang perlu dikirim notifikasi bulan *{$namaBulan} {$tahun}*:",
-            'data'    => $warga->map(fn($w) => [
+            'data' => $warga->map(fn ($w) => [
                 'nama_warga' => $w->nama_warga,
-                'no_hp'      => $w->no_hp,
+                'no_hp' => $w->no_hp,
             ]),
         ];
     }
@@ -485,12 +491,12 @@ class AiChatbotController extends Controller
             });
         }
 
-        $data  = $query->get()
+        $data = $query->get()
             ->groupBy('nik')
             ->map(function ($pembayaran, $nik) {
                 return [
-                    'nik'          => $nik,
-                    'nama_warga'   => $pembayaran->first()->warga->nama_warga ?? $pembayaran->first()->nama_warga_snapshot,
+                    'nik' => $nik,
+                    'nama_warga' => $pembayaran->first()->warga->nama_warga ?? $pembayaran->first()->nama_warga_snapshot,
                     'jumlah_bayar' => $pembayaran->count(),
                 ];
             })
@@ -506,14 +512,14 @@ class AiChatbotController extends Controller
 
         return [
             'message' => "⚠️ Berikut *5 warga*{$scope} dengan riwayat pembayaran paling sedikit:",
-            'data'    => $data,
+            'data' => $data,
         ];
     }
 
     private function getRingkasanBulanIni(?int $reguId): array
     {
-        $bulan     = (int) now()->format('n');
-        $tahun     = now()->format('Y');
+        $bulan = (int) now()->format('n');
+        $tahun = now()->format('Y');
         $namaBulan = Carbon::create()->month($bulan)->translatedFormat('F');
 
         $iuran = InformasiIuran::where('jenis_iuran', 'bulanan')
@@ -525,8 +531,8 @@ class AiChatbotController extends Controller
 
         $sudahBayarQuery = $iuran
             ? Pembayaran::where('id_informasi_iuran', $iuran->id)
-            ->where('status_bayar', 'approved')
-            ->whereJsonContains('bulan', (string) $bulan)
+                ->where('status_bayar', 'approved')
+                ->whereJsonContains('bulan', (string) $bulan)
             : null;
 
         if ($reguId && $sudahBayarQuery) {
@@ -550,18 +556,18 @@ class AiChatbotController extends Controller
         }
 
         $totalPemasukan = $pemasukanQuery->sum('total_bayar');
-        $formatted      = 'Rp ' . number_format($totalPemasukan, 0, ',', '.');
-        $scope          = $reguId ? ' regu Anda' : '';
+        $formatted = 'Rp '.number_format($totalPemasukan, 0, ',', '.');
+        $scope = $reguId ? ' regu Anda' : '';
 
         return [
             'message' => "📋 *Ringkasan Pembayaran{$scope} {$namaBulan} {$tahun}*\n\n"
-                . "• Total warga aktif : *{$totalWarga} KK*\n"
-                . "• Sudah membayar    : *{$sudahBayar} KK* ({$persentase}%)\n"
-                . "• Belum membayar    : *{$belumBayar} KK*\n"
-                . "• Total pemasukan   : *{$formatted}*\n\n"
-                . ($persentase >= 80
-                    ? "✅ Tingkat kepatuhan bulan ini *baik*."
-                    : "⚠️ Tingkat kepatuhan bulan ini masih *perlu ditingkatkan*."),
+                ."• Total warga aktif : *{$totalWarga} KK*\n"
+                ."• Sudah membayar    : *{$sudahBayar} KK* ({$persentase}%)\n"
+                ."• Belum membayar    : *{$belumBayar} KK*\n"
+                ."• Total pemasukan   : *{$formatted}*\n\n"
+                .($persentase >= 80
+                    ? '✅ Tingkat kepatuhan bulan ini *baik*.'
+                    : '⚠️ Tingkat kepatuhan bulan ini masih *perlu ditingkatkan*.'),
         ];
     }
 

@@ -15,8 +15,10 @@ class Warga extends Model
     protected $table = 'warga';
 
     protected $primaryKey = 'nik';
-    public    $incrementing = false;
-    protected $keyType      = 'string';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
 
     protected $fillable = [
         'nik',
@@ -56,7 +58,7 @@ class Warga extends Model
     // app/Models/Warga.php — tambahkan method ini
     public function hitungRentangBulanWajib(int $tahunPeriode): array
     {
-        $bulanMulai    = 1;
+        $bulanMulai = 1;
         $bulanMaksimal = 12;
 
         $tanggalBergabung = $this->tanggal_bergabung
@@ -73,7 +75,7 @@ class Warga extends Model
         }
 
         if ($this->status_keaktifan === 'tidak_aktif' && $this->tanggal_nonaktif) {
-            $tglNonaktif   = \Carbon\Carbon::parse($this->tanggal_nonaktif);
+            $tglNonaktif = \Carbon\Carbon::parse($this->tanggal_nonaktif);
             $tahunNonaktif = (int) $tglNonaktif->format('Y');
             $bulanNonaktif = (int) $tglNonaktif->format('n');
 

@@ -21,182 +21,182 @@ class AnggotaReguSeeder extends Seeder
 
             // ── REGU 1 ────────────────────────────────────────────────
             [
-                'id_regu'          => 1,
-                'nik'              => '3578010101800001', // Budi Santoso (ketua)
+                'id_regu' => 1,
+                'nik' => '3578010101800001', // Budi Santoso (ketua)
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => true,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 1,
-                'nik'              => '3578010101900001', // Dewi Rahayu
+                'id_regu' => 1,
+                'nik' => '3578010101900001', // Dewi Rahayu
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 1,
-                'nik'              => '3578010101900002', // Siti Aminah
+                'id_regu' => 1,
+                'nik' => '3578010101900002', // Siti Aminah
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
 
             // ── REGU 2 ────────────────────────────────────────────────
             [
-                'id_regu'          => 2,
-                'nik'              => '3578010101800002', // Slamet Raharjo (ketua)
+                'id_regu' => 2,
+                'nik' => '3578010101800002', // Slamet Raharjo (ketua)
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => true,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 2,
-                'nik'              => '3578010101900003', // Joko Susilo
+                'id_regu' => 2,
+                'nik' => '3578010101900003', // Joko Susilo
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 2,
-                'nik'              => '3578010101900004', // Wahyu Nugroho
+                'id_regu' => 2,
+                'nik' => '3578010101900004', // Wahyu Nugroho
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
 
             // ── REGU 3 ────────────────────────────────────────────────
             [
-                'id_regu'          => 3,
-                'nik'              => '3578010101800003', // Hendra Gunawan (ketua)
+                'id_regu' => 3,
+                'nik' => '3578010101800003', // Hendra Gunawan (ketua)
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => true,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 3,
-                'nik'              => '3578010101900005', // Eko Widodo
+                'id_regu' => 3,
+                'nik' => '3578010101900005', // Eko Widodo
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 3,
-                'nik'              => '3578010101900006', // Bambang Sutrisno
+                'id_regu' => 3,
+                'nik' => '3578010101900006', // Bambang Sutrisno
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
 
             // ── REGU 4 ────────────────────────────────────────────────
             [
-                'id_regu'          => 4,
-                'nik'              => '3578010101800004', // Agus Prasetyo (ketua)
+                'id_regu' => 4,
+                'nik' => '3578010101800004', // Agus Prasetyo (ketua)
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => true,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 4,
-                'nik'              => '3578010101900007', // Yuli Astuti
+                'id_regu' => 4,
+                'nik' => '3578010101900007', // Yuli Astuti
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 4,
-                'nik'              => '3578010101900008', // Ratna Sari
+                'id_regu' => 4,
+                'nik' => '3578010101900008', // Ratna Sari
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 4,
-                'nik'              => '3578010101900009', // Fajar Setiawan
+                'id_regu' => 4,
+                'nik' => '3578010101900009', // Fajar Setiawan
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
 
             // ── REGU 5 ────────────────────────────────────────────────
             [
-                'id_regu'          => 5,
-                'nik'              => '3578010101800005', // Doni Firmansyah (ketua)
+                'id_regu' => 5,
+                'nik' => '3578010101800005', // Doni Firmansyah (ketua)
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => true,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 5,
-                'nik'              => '3578010101900010', // Indra Kusuma
+                'id_regu' => 5,
+                'nik' => '3578010101900010', // Indra Kusuma
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 5,
-                'nik'              => '3578010101900011', // Maya Puspita
+                'id_regu' => 5,
+                'nik' => '3578010101900011', // Maya Puspita
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 5,
-                'nik'              => '3578010101900012', // Tono Hartono
+                'id_regu' => 5,
+                'nik' => '3578010101900012', // Tono Hartono
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
 
             // ── REGU 6 ────────────────────────────────────────────────
             [
-                'id_regu'          => 6,
-                'nik'              => '3578010101800006', // Rizky Hidayat (ketua)
+                'id_regu' => 6,
+                'nik' => '3578010101800006', // Rizky Hidayat (ketua)
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => true,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 6,
-                'nik'              => '3578010101900013', // Rina Marlina
+                'id_regu' => 6,
+                'nik' => '3578010101900013', // Rina Marlina
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 6,
-                'nik'              => '3578010101900014', // Surya Admaja
+                'id_regu' => 6,
+                'nik' => '3578010101900014', // Surya Admaja
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'id_regu'          => 6,
-                'nik'              => '3578010101900015', // Putri Handayani
+                'id_regu' => 6,
+                'nik' => '3578010101900015', // Putri Handayani
                 'status_keaktifan' => 'aktif',
-                'is_leader'        => false,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+                'is_leader' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
         ];
 

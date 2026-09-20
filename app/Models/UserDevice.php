@@ -10,7 +10,7 @@ class UserDevice extends Model
 {
     use HasFactory;
 
-    protected $table    = 'user_devices';
+    protected $table = 'user_devices';
 
     protected $fillable = ['user_id', 'fcm_token', 'device_name', 'platform', 'app_type', 'last_used_at'];
 

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -24,7 +23,7 @@ class ActivityLogController extends Controller
         }
 
         if ($request->filled('user') && $user->role === 'admin') {
-            $query->where('nama_user_snapshot', 'like', '%' . $request->user . '%');
+            $query->where('nama_user_snapshot', 'like', '%'.$request->user.'%');
         }
 
         if ($request->filled('action')) {
@@ -33,7 +32,7 @@ class ActivityLogController extends Controller
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $start = Carbon::parse($request->start_date)->startOfDay();
-            $end   = Carbon::parse($request->end_date)->endOfDay();
+            $end = Carbon::parse($request->end_date)->endOfDay();
 
             $query->whereBetween('created_at', [$start, $end]);
         }
@@ -51,7 +50,7 @@ class ActivityLogController extends Controller
             'user:id,name',
         ])->find($id);
 
-        if (!$log) {
+        if (! $log) {
             return ApiResponse::error('Data tidak ditemukan.', 'Activity log tidak ditemukan.', 404);
         }
 

@@ -4,23 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Exports\LaporanPembayaranExport;
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
-use App\Models\Pembayaran;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\InformasiIuran;
+use App\Models\Pembayaran;
 use App\Models\Warga;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Str;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 
 class LaporanController extends Controller
 {
-    private const NAMA_KELIAN    = 'Gusti Putu Adnyana, S.H.';
+    private const NAMA_KELIAN = 'Gusti Putu Adnyana, S.H.';
+
     private const JABATAN_KELIAN = 'Kelian Banjar';
 
     public function index(Request $request)
@@ -90,9 +90,9 @@ class LaporanController extends Controller
         // Filter keyword nama warga
         if ($request->filled('keyword')) {
             $query->where(function ($q) use ($request) {
-                $q->where('pembayaran.nama_warga_snapshot', 'like', '%' . $request->keyword . '%')
-                    ->orWhere('warga.nama_warga', 'like', '%' . $request->keyword . '%')
-                    ->orWhere('pembayaran.nik_snapshot', 'like', '%' . $request->keyword . '%');
+                $q->where('pembayaran.nama_warga_snapshot', 'like', '%'.$request->keyword.'%')
+                    ->orWhere('warga.nama_warga', 'like', '%'.$request->keyword.'%')
+                    ->orWhere('pembayaran.nik_snapshot', 'like', '%'.$request->keyword.'%');
             });
         }
 
@@ -106,20 +106,20 @@ class LaporanController extends Controller
     public function exportExcel(Request $request)
     {
         $filters = [
-            'start_date'      => $request->start_date,
-            'end_date'        => $request->end_date,
-            'jenis_iuran'     => $request->jenis_iuran,
-            'metode_bayar'    => $request->metode_bayar,
-            'status_bayar'    => $request->status_bayar,
-            'regu'            => $request->regu,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'jenis_iuran' => $request->jenis_iuran,
+            'metode_bayar' => $request->metode_bayar,
+            'status_bayar' => $request->status_bayar,
+            'regu' => $request->regu,
             'informasi_iuran' => $request->informasi_iuran,
         ];
 
-        $filename = 'laporan-pembayaran-' . now()->format('Y-m-d-His') . '.xlsx';
+        $filename = 'laporan-pembayaran-'.now()->format('Y-m-d-His').'.xlsx';
 
         $this->writeLog(
             'export',
-            "Mengunduh laporan pembayaran dalam format Excel.",
+            'Mengunduh laporan pembayaran dalam format Excel.',
             $request
         );
 
@@ -129,11 +129,11 @@ class LaporanController extends Controller
     public function exportPdf(Request $request)
     {
         $hasIdInformasiIuran = $request->filled('id_informasi_iuran');
-        $hasRentangKematian  = $request->filled('jenis_iuran')
+        $hasRentangKematian = $request->filled('jenis_iuran')
             && $request->filled('start_date')
             && $request->filled('end_date');
 
-        if (!$hasIdInformasiIuran && !$hasRentangKematian) {
+        if (! $hasIdInformasiIuran && ! $hasRentangKematian) {
             return ApiResponse::error(
                 'Wajib mengisi id_informasi_iuran, atau jenis_iuran beserta start_date dan end_date untuk laporan gabungan iuran kematian.',
                 null,
@@ -146,7 +146,7 @@ class LaporanController extends Controller
                 'id_informasi_iuran' => 'required|exists:informasi_iuran,id',
             ], [
                 'id_informasi_iuran.required' => 'Informasi iuran wajib dipilih.',
-                'id_informasi_iuran.exists'   => 'Informasi iuran tidak ditemukan.',
+                'id_informasi_iuran.exists' => 'Informasi iuran tidak ditemukan.',
             ]);
 
             $iuran = InformasiIuran::findOrFail($request->id_informasi_iuran);
@@ -166,15 +166,15 @@ class LaporanController extends Controller
 
         $request->validate([
             'jenis_iuran' => 'required|in:kematian',
-            'start_date'  => 'required|date',
-            'end_date'    => 'required|date|after_or_equal:start_date',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
         ], [
-            'jenis_iuran.required'    => 'Jenis iuran wajib diisi.',
-            'jenis_iuran.in'          => 'Laporan gabungan berdasarkan rentang tanggal hanya tersedia untuk jenis iuran kematian.',
-            'start_date.required'     => 'Tanggal mulai wajib diisi.',
-            'start_date.date'         => 'Tanggal mulai tidak valid.',
-            'end_date.required'       => 'Tanggal akhir wajib diisi.',
-            'end_date.date'           => 'Tanggal akhir tidak valid.',
+            'jenis_iuran.required' => 'Jenis iuran wajib diisi.',
+            'jenis_iuran.in' => 'Laporan gabungan berdasarkan rentang tanggal hanya tersedia untuk jenis iuran kematian.',
+            'start_date.required' => 'Tanggal mulai wajib diisi.',
+            'start_date.date' => 'Tanggal mulai tidak valid.',
+            'end_date.required' => 'Tanggal akhir wajib diisi.',
+            'end_date.date' => 'Tanggal akhir tidak valid.',
             'end_date.after_or_equal' => 'Tanggal akhir harus setelah atau sama dengan tanggal mulai.',
         ]);
 
@@ -193,7 +193,7 @@ class LaporanController extends Controller
     {
         // Ambil semua warga aktif
         $wargas = Warga::with([
-            'anggotaRegu' => fn($q) => $q->whereNull('deleted_at')
+            'anggotaRegu' => fn ($q) => $q->whereNull('deleted_at')
                 ->where('status_keaktifan', 'aktif')
                 ->with('regu'),
         ])
@@ -218,14 +218,14 @@ class LaporanController extends Controller
                 if (is_string($bulan)) {
                     $bulan = json_decode($bulan, true) ?? [];
                 }
-                $bulanDibayar = collect($bulan)->map(fn($b) => (int) $b)->toArray();
+                $bulanDibayar = collect($bulan)->map(fn ($b) => (int) $b)->toArray();
             }
 
             $anggotaAktif = $warga->anggotaRegu->first();
 
             return [
-                'nama_warga'   => $warga->nama_warga,
-                'regu'         => $anggotaAktif?->regu?->nama_regu ?? '-',
+                'nama_warga' => $warga->nama_warga,
+                'regu' => $anggotaAktif?->regu?->nama_regu ?? '-',
                 'bulan_dibayar' => $bulanDibayar,
             ];
         })->values()->toArray();
@@ -246,15 +246,15 @@ class LaporanController extends Controller
         ];
 
         $pdf = Pdf::loadView('exports.laporan-bulanan', [
-            'iuran'          => $iuran,
-            'wargas'         => $data,
-            'bulanHeaders'   => $bulanHeaders,
-            'pengurus'       => self::NAMA_KELIAN,
+            'iuran' => $iuran,
+            'wargas' => $data,
+            'bulanHeaders' => $bulanHeaders,
+            'pengurus' => self::NAMA_KELIAN,
             'jabatanPengurus' => self::JABATAN_KELIAN,
-            'ttdPengurus'    => $this->getTtdKelianBase64(),
+            'ttdPengurus' => $this->getTtdKelianBase64(),
         ])->setPaper('a4', 'landscape');
 
-        $filename = 'laporan-bulanan-' . Str::slug($iuran->judul_iuran) . '-' . now()->format('Ymd') . '.pdf';
+        $filename = 'laporan-bulanan-'.Str::slug($iuran->judul_iuran).'-'.now()->format('Ymd').'.pdf';
 
         return $pdf->download($filename);
     }
@@ -265,7 +265,7 @@ class LaporanController extends Controller
     {
         // Ambil semua warga aktif
         $wargas = Warga::with([
-            'anggotaRegu' => fn($q) => $q->whereNull('deleted_at')
+            'anggotaRegu' => fn ($q) => $q->whereNull('deleted_at')
                 ->where('status_keaktifan', 'aktif')
                 ->with('regu'),
         ])
@@ -285,21 +285,21 @@ class LaporanController extends Controller
             $anggotaAktif = $warga->anggotaRegu->first();
 
             return [
-                'nama_warga'  => $warga->nama_warga,
-                'regu'        => $anggotaAktif?->regu?->nama_regu ?? '-',
+                'nama_warga' => $warga->nama_warga,
+                'regu' => $anggotaAktif?->regu?->nama_regu ?? '-',
                 'sudah_bayar' => in_array($warga->nik, $sudahBayarNiks),
             ];
         })->values()->toArray();
 
         $pdf = Pdf::loadView('exports.laporan-kematian', [
-            'iuran'          => $iuran,
-            'wargas'         => $data,
-            'pengurus'       => self::NAMA_KELIAN,
+            'iuran' => $iuran,
+            'wargas' => $data,
+            'pengurus' => self::NAMA_KELIAN,
             'jabatanPengurus' => self::JABATAN_KELIAN,
-            'ttdPengurus'    => $this->getTtdKelianBase64(),
+            'ttdPengurus' => $this->getTtdKelianBase64(),
         ])->setPaper('a4', 'portrait');
 
-        $filename = 'laporan-kematian-' . Str::slug($iuran->judul_iuran) . '-' . now()->format('Ymd') . '.pdf';
+        $filename = 'laporan-kematian-'.Str::slug($iuran->judul_iuran).'-'.now()->format('Ymd').'.pdf';
 
         return $pdf->download($filename);
     }
@@ -309,7 +309,7 @@ class LaporanController extends Controller
     private function exportKematianRentang(string $startDate, string $endDate)
     {
         $start = Carbon::parse($startDate)->startOfDay();
-        $end   = Carbon::parse($endDate)->endOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
 
         // Semua informasi_iuran kematian yang dibuat dalam rentang tanggal ini
         $iurans = InformasiIuran::where('jenis_iuran', 'kematian')
@@ -319,7 +319,7 @@ class LaporanController extends Controller
 
         // Ambil semua warga aktif sekali saja, dipakai ulang untuk tiap kelompok iuran
         $wargas = Warga::with([
-            'anggotaRegu' => fn($q) => $q->whereNull('deleted_at')
+            'anggotaRegu' => fn ($q) => $q->whereNull('deleted_at')
                 ->where('status_keaktifan', 'aktif')
                 ->with('regu'),
         ])
@@ -333,7 +333,7 @@ class LaporanController extends Controller
             ->whereIn('status_bayar', ['approved'])
             ->get()
             ->groupBy('id_informasi_iuran')
-            ->map(fn($rows) => $rows->pluck('nik')->unique()->toArray());
+            ->map(fn ($rows) => $rows->pluck('nik')->unique()->toArray());
 
         // Susun 1 baris per warga, 1 kolom per informasi_iuran kematian (mirip pola laporan bulanan)
         $data = $wargas->map(function ($warga) use ($iurans, $sudahBayarPerIuran) {
@@ -346,24 +346,24 @@ class LaporanController extends Controller
             })->toArray();
 
             return [
-                'nama_warga'       => $warga->nama_warga,
-                'regu'             => $anggotaAktif?->regu?->nama_regu ?? '-',
+                'nama_warga' => $warga->nama_warga,
+                'regu' => $anggotaAktif?->regu?->nama_regu ?? '-',
                 'status_per_iuran' => $statusPerIuran,
-                'jumlah_bayar'     => collect($statusPerIuran)->filter()->count(),
+                'jumlah_bayar' => collect($statusPerIuran)->filter()->count(),
             ];
         })->values()->toArray();
 
         $pdf = Pdf::loadView('exports.laporan-kematian-rentang', [
-            'iurans'         => $iurans,
-            'wargas'         => $data,
-            'startDate'      => $start,
-            'endDate'        => $end,
-            'pengurus'       => self::NAMA_KELIAN,
+            'iurans' => $iurans,
+            'wargas' => $data,
+            'startDate' => $start,
+            'endDate' => $end,
+            'pengurus' => self::NAMA_KELIAN,
             'jabatanPengurus' => self::JABATAN_KELIAN,
-            'ttdPengurus'    => $this->getTtdKelianBase64(),
+            'ttdPengurus' => $this->getTtdKelianBase64(),
         ])->setPaper('a4', 'landscape');
 
-        $filename = 'laporan-kematian-' . $start->format('Ymd') . '-' . $end->format('Ymd') . '.pdf';
+        $filename = 'laporan-kematian-'.$start->format('Ymd').'-'.$end->format('Ymd').'.pdf';
 
         return $pdf->download($filename);
     }
@@ -372,23 +372,23 @@ class LaporanController extends Controller
     {
         $path = storage_path('app/public/signatures/ttd-kelian.png');
 
-        if (!is_file($path)) {
+        if (! is_file($path)) {
             return null;
         }
 
-        return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
+        return 'data:image/png;base64,'.base64_encode(file_get_contents($path));
     }
 
     private function writeLog(string $action, string $description, Request $request): void
     {
         try {
             ActivityLog::create([
-                'id_user'            => Auth::user()?->id,
+                'id_user' => Auth::user()?->id,
                 'nama_user_snapshot' => Auth::user()?->name,
-                'action'             => $action,
-                'description'        => $description,
-                'ip_address'         => $request->ip(),
-                'user_agent'         => $request->userAgent(),
+                'action' => $action,
+                'description' => $description,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         } catch (\Throwable $e) {
             Log::warning("Gagal menulis activity log: {$e->getMessage()}");
